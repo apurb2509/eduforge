@@ -55,6 +55,13 @@ async def generate_video(text: str = Form(...), image: UploadFile = File(...)):
         "video_url": "http://127.0.0.1:8000/static/output_lecture.mp4"
     }
 
+from utils.cleanup import clear_old_files
+
+@app.post("/generate-video")
+async def generate_video(text: str = Form(...), image: UploadFile = File(...)):
+    clear_old_files(TEMP_DIR) # Automatically delete files older than 1 hour
+    # ... rest of the existing generation logic ...
+
 @app.get("/")
 def read_root():
     return {"message": "EduForge Backend API is running"}
