@@ -64,3 +64,11 @@ input, textarea {
   cursor: pointer;
   font-weight: bold;
 }
+
+.status-message {
+  margin-top: 1rem;
+  padding: 0.75rem;
+  background: #334155;
+  border-radius: 4px;
+  font-size: 0.9rem;
+}
