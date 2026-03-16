@@ -91,3 +91,12 @@ video {
   text-decoration: none;
   font-weight: bold;
 }
+
+ul {
+  padding-left: 1.2rem;
+  color: #cbd5e1;
+}
+
+li::marker {
+  color: var(--primary);
+}
