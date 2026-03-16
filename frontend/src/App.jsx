@@ -1,5 +1,6 @@
 import React from 'react';
 import Navbar from './components/Navbar';
+import LectureForm from './components/LectureForm';
 import './index.css';
 
 const App = () => {
@@ -7,8 +8,7 @@ const App = () => {
     <div>
       <Navbar />
       <main className="container">
-        <h1>Welcome to EduForge</h1>
-        <p>Your AI-powered learning ecosystem.</p>
+        <LectureForm />
       </main>
     </div>
   );

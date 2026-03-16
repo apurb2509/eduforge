@@ -30,3 +30,37 @@ body {
   margin: 2rem auto;
   padding: 0 1rem;
 }
+
+.card {
+  background: #1e293b;
+  padding: 2rem;
+  border-radius: 8px;
+  border: 1px solid #334155;
+  max-width: 600px;
+}
+
+.form-group {
+  margin-bottom: 1.5rem;
+  display: flex;
+  flex-direction: column;
+}
+
+label { margin-bottom: 0.5rem; color: #94a3b8; }
+
+input, textarea {
+  background: #0f172a;
+  border: 1px solid #334155;
+  color: white;
+  padding: 0.75rem;
+  border-radius: 4px;
+}
+
+.btn-primary {
+  background: var(--primary);
+  color: white;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-weight: bold;
+}
