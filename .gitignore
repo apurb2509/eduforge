@@ -18,3 +18,5 @@ venv/
 # AI Models
 models/
 .python-version
+
+backend/temp/*
