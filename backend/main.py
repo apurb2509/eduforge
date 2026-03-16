@@ -62,6 +62,15 @@ async def generate_video(text: str = Form(...), image: UploadFile = File(...)):
     clear_old_files(TEMP_DIR) # Automatically delete files older than 1 hour
     # ... rest of the existing generation logic ...
 
+from services.notes_service import NotesService
+
+notes_service = NotesService()
+
+@app.post("/generate-notes")
+async def generate_notes(text: str = Form(...)):
+    notes = notes_service.generate_notes(text)
+    return notes
+
 @app.get("/")
 def read_root():
     return {"message": "EduForge Backend API is running"}
