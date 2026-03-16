@@ -72,3 +72,22 @@ input, textarea {
   border-radius: 4px;
   font-size: 0.9rem;
 }
+
+.video-container {
+  margin-top: 2rem;
+  border-top: 1px solid #334155;
+  padding-top: 1rem;
+}
+
+video {
+  border-radius: 8px;
+  background: #000;
+}
+
+.download-link {
+  display: inline-block;
+  margin-top: 1rem;
+  color: var(--primary);
+  text-decoration: none;
+  font-weight: bold;
+}
