@@ -20,3 +20,5 @@ models/
 .python-version
 
 backend/temp/*
+
+backend/models/checkpoints/*.pth
