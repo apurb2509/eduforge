@@ -1,12 +1,18 @@
 import os
-from fastapi.staticfiles import StaticFiles
 from fastapi import FastAPI, UploadFile, File, Form
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+
+# Import Services
 from services.tts_service import TTSService
+from services.video_service import VideoService
+from services.notes_service import NotesService
+from utils.cleanup import clear_old_files
 
 app = FastAPI()
-app.mount("/static", StaticFiles(directory="temp"), name="static")
 tts = TTSService()
+video_service = VideoService()
+notes_service = NotesService()
 
 app.add_middleware(
     CORSMiddleware,
@@ -16,37 +22,30 @@ app.add_middleware(
 )
 
 TEMP_DIR = "temp"
+if not os.path.exists(TEMP_DIR):
+    os.makedirs(TEMP_DIR)
+
+# Mount static files BEFORE routes
+app.mount("/static", StaticFiles(directory=TEMP_DIR), name="static")
 
 @app.post("/generate-video")
 async def generate_video(
     text: str = Form(...),
     image: UploadFile = File(...)
 ):
-    # 1. Save the uploaded image
+    # 1. Cleanup old files
+    clear_old_files(TEMP_DIR)
+
+    # 2. Save the uploaded image
     image_path = os.path.join(TEMP_DIR, image.filename)
     with open(image_path, "wb") as buffer:
         buffer.write(await image.read())
     
-    # 2. Generate Audio from Text
+    # 3. Generate Audio from Text
     audio_path = os.path.join(TEMP_DIR, "lecture_audio.mp3")
     await tts.generate_speech(text, audio_path)
-    
-    return {
-        "status": "audio_generated",
-        "image_path": image_path,
-        "audio_path": audio_path,
-        "message": "Speech synthesis complete. Ready for video processing."
-    }
 
-from services.video_service import VideoService
-
-video_service = VideoService()
-
-@app.post("/generate-video")
-async def generate_video(text: str = Form(...), image: UploadFile = File(...)):
-    # ... existing image saving and tts code ...
-    
-    # 3. Create Video
+    # 4. Create Video
     video_path = os.path.join(TEMP_DIR, "output_lecture.mp4")
     video_service.create_static_video(image_path, audio_path, video_path)
     
@@ -54,17 +53,6 @@ async def generate_video(text: str = Form(...), image: UploadFile = File(...)):
         "status": "completed",
         "video_url": "http://127.0.0.1:8000/static/output_lecture.mp4"
     }
-
-from utils.cleanup import clear_old_files
-
-@app.post("/generate-video")
-async def generate_video(text: str = Form(...), image: UploadFile = File(...)):
-    clear_old_files(TEMP_DIR) # Automatically delete files older than 1 hour
-    # ... rest of the existing generation logic ...
-
-from services.notes_service import NotesService
-
-notes_service = NotesService()
 
 @app.post("/generate-notes")
 async def generate_notes(text: str = Form(...)):

@@ -1,13 +1,11 @@
 import React, { useState } from 'react';
 import axios from 'axios';
 
-// Destructure onNotesGenerated from props here
-const LectureForm = ({ onNotesGenerated }) => {
+const LectureForm = ({ onNotesGenerated, onVideoGenerated }) => {
   const [text, setText] = useState('');
   const [file, setFile] = useState(null);
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState('');
-  const [videoUrl, setVideoUrl] = useState(null);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -15,7 +13,7 @@ const LectureForm = ({ onNotesGenerated }) => {
 
     setLoading(true);
     setStatus('Generating Video and Notes...');
-    setVideoUrl(null);
+    onVideoGenerated(null); // Reset previous video
 
     const formData = new FormData();
     formData.append('image', file);
@@ -24,17 +22,14 @@ const LectureForm = ({ onNotesGenerated }) => {
     try {
       // 1. Generate Video
       const videoRes = await axios.post('http://127.0.0.1:8000/generate-video', formData);
-      setVideoUrl(videoRes.data.video_url);
+      onVideoGenerated(videoRes.data.video_url);
 
-      // 2. Generate Notes (using same text)
+      // 2. Generate Notes
       const notesFormData = new FormData();
       notesFormData.append('text', text);
       const notesRes = await axios.post('http://127.0.0.1:8000/generate-notes', notesFormData);
       
-      // Now this call will work because it's defined in the props above
-      if (onNotesGenerated) {
-        onNotesGenerated(notesRes.data);
-      }
+      if (onNotesGenerated) onNotesGenerated(notesRes.data);
 
       setStatus('All resources generated successfully!');
     } catch (error) {
@@ -51,11 +46,7 @@ const LectureForm = ({ onNotesGenerated }) => {
       <form onSubmit={handleSubmit}>
         <div className="form-group">
           <label>Instructor Image</label>
-          <input 
-            type="file" 
-            onChange={(e) => setFile(e.target.files[0])} 
-            accept="image/*" 
-          />
+          <input type="file" onChange={(e) => setFile(e.target.files[0])} accept="image/*" />
         </div>
         <div className="form-group">
           <label>Lecture Content</label>
@@ -70,18 +61,7 @@ const LectureForm = ({ onNotesGenerated }) => {
           {loading ? 'Generating...' : 'Generate Video & Notes'}
         </button>
       </form>
-
       {status && <p className="status-message">{status}</p>}
-
-      {videoUrl && (
-        <div className="video-container">
-          <h4>Generated Lecture:</h4>
-          <video controls width="100%" src={videoUrl} key={videoUrl}>
-            Your browser does not support the video tag.
-          </video>
-          <a href={videoUrl} download className="download-link">Download Video</a>
-        </div>
-      )}
     </div>
   );
 };
