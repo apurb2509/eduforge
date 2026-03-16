@@ -14,3 +14,7 @@ venv/
 *.mp4
 *.wav
 *.mp3
+
+# AI Models
+models/
+.python-version
