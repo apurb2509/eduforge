@@ -1,102 +1,39 @@
-:root {
-  --primary: #2563eb;
-  --bg: #0f172a;
-  --text: #f8fafc;
+@import "tailwindcss";
+
+/* In Tailwind v4, custom colors are defined as CSS variables */
+@theme {
+  --color-indigo-600: #4f46e5;
+  --color-indigo-700: #4338ca;
 }
 
-body {
-  margin: 0;
-  font-family: 'Inter', sans-serif;
-  background-color: var(--bg);
-  color: var(--text);
+@layer base {
+  body {
+    margin: 0;
+    /* We use the theme variable directly or standard utility names */
+    background-color: var(--color-slate-50);
+    color: var(--color-slate-900);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  }
 }
 
-.navbar {
-  display: flex;
-  justify-content: space-between;
-  padding: 1rem 2rem;
-  background: #1e293b;
-  border-bottom: 1px solid #334155;
-}
+@layer components {
+  .u-card {
+    @apply bg-white rounded-2xl border border-slate-200 shadow-sm transition-all duration-300;
+  }
 
-.nav-logo {
-  font-size: 1.5rem;
-  font-weight: bold;
-  color: var(--primary);
-}
+  .u-input {
+    @apply w-full px-4 py-3 rounded-xl border border-slate-200 bg-white 
+           text-slate-600 outline-none 
+           focus:ring-2 focus:ring-indigo-600 focus:border-transparent 
+           transition-all duration-200;
+  }
 
-.container {
-  max-width: 1200px;
-  margin: 2rem auto;
-  padding: 0 1rem;
-}
-
-.card {
-  background: #1e293b;
-  padding: 2rem;
-  border-radius: 8px;
-  border: 1px solid #334155;
-  max-width: 600px;
-}
-
-.form-group {
-  margin-bottom: 1.5rem;
-  display: flex;
-  flex-direction: column;
-}
-
-label { margin-bottom: 0.5rem; color: #94a3b8; }
-
-input, textarea {
-  background: #0f172a;
-  border: 1px solid #334155;
-  color: white;
-  padding: 0.75rem;
-  border-radius: 4px;
-}
-
-.btn-primary {
-  background: var(--primary);
-  color: white;
-  border: none;
-  padding: 0.75rem 1.5rem;
-  border-radius: 4px;
-  cursor: pointer;
-  font-weight: bold;
-}
-
-.status-message {
-  margin-top: 1rem;
-  padding: 0.75rem;
-  background: #334155;
-  border-radius: 4px;
-  font-size: 0.9rem;
-}
-
-.video-container {
-  margin-top: 2rem;
-  border-top: 1px solid #334155;
-  padding-top: 1rem;
-}
-
-video {
-  border-radius: 8px;
-  background: #000;
-}
-
-.download-link {
-  display: inline-block;
-  margin-top: 1rem;
-  color: var(--primary);
-  text-decoration: none;
-  font-weight: bold;
-}
-
-ul {
-  padding-left: 1.2rem;
-  color: #cbd5e1;
-}
-
-li::marker {
-  color: var(--primary);
+  .u-btn-primary {
+    @apply bg-indigo-600 hover:bg-indigo-700 
+           text-white font-bold py-3 px-6 rounded-xl 
+           transition-all duration-200
+           flex items-center justify-center gap-2;
+  }
 }
