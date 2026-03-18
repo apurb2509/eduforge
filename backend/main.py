@@ -70,6 +70,41 @@ async def generate_video(text: str = Form(...), image: UploadFile = File(...)):
 async def generate_notes(text: str = Form(...)):
     return notes_service.generate_notes(text)
 
+from utils.security import get_password_hash, verify_password, create_access_token
+from models.user import UserCreate, UserRole
+
+# For demo purposes, we'll use an in-memory "database"
+# Replace this with MongoDB/PostgreSQL later
+users_db = {}
+
+@app.post("/auth/register")
+async def register(user: UserCreate):
+    if user.email in users_db:
+        return {"error": "Email already registered"}
+    
+    hashed_password = get_password_hash(user.password)
+    users_db[user.email] = {
+        "email": user.email,
+        "full_name": user.full_name,
+        "role": user.role,
+        "hashed_password": hashed_password
+    }
+    return {"message": f"User registered as {user.role}"}
+
+@app.post("/auth/login")
+async def login(form_data: UserCreate): # Simplified for now
+    user = users_db.get(form_data.email)
+    if not user or not verify_password(form_data.password, user["hashed_password"]):
+        return {"error": "Invalid credentials"}
+    
+    access_token = create_access_token(data={"sub": user["email"], "role": user["role"]})
+    return {
+        "access_token": access_token, 
+        "token_type": "bearer",
+        "role": user["role"],
+        "name": user["full_name"]
+    }
+
 @app.get("/")
 def read_root():
     return {"message": "EduForge Backend API is running"}
