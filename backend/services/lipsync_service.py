@@ -19,21 +19,30 @@ class LipSyncService:
         abs_audio = os.path.abspath(audio_track)
         abs_output = os.path.abspath(output_path)
         
+        # Check if face_image is a static image to trigger the optimization in inference.py
+        is_static = any(face_image.lower().endswith(ext) for ext in ['.jpg', '.png', '.jpeg'])
+        
         # We run the command FROM the wav2lip folder
-        # This solves the "No module named audio" error permanently
+        # Added --resize_factor 2 for speed and --static for image optimization
         command = [
             self.python_exe, "inference.py",
             "--checkpoint_path", abs_checkpoint,
             "--face", abs_face,
             "--audio", abs_audio,
             "--outfile", abs_output,
+            "--resize_factor", "2",
             "--nosmooth"
         ]
+        
+        # If it's an image, tell the inference script to optimize detection
+        if is_static:
+            command.append("--static")
+            command.append("True")
 
         try:
             print("AI is animating the face... this may take a minute.")
-            # Use cwd="backend/wav2lip" to force the context
-            # If you are already in 'backend', use cwd="wav2lip"
+            # Use cwd="wav2lip" to force the context
+            # This assumes your current working directory is 'backend'
             result = subprocess.run(
                 command, 
                 check=True, 
@@ -44,6 +53,7 @@ class LipSyncService:
             print("LipSync completed successfully!")
             return True
         except subprocess.CalledProcessError as e:
+            # Enhanced error reporting to see exactly what went wrong in the subprocess
             print(f"Inference Failed Error: {e.stderr}")
             return False
         except Exception as e:

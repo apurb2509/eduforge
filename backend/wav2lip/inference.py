@@ -29,13 +29,15 @@ def get_smoothened_boxes(boxes, T):
     return boxes
 
 def face_detect(images, args):
+    # Initialize detector only once to save VRAM
     detector = face_detection.FaceAlignment(face_detection.LandmarksType._2D, 
                                             flip_input=False, device=device)
     batch_size = args.face_det_batch_size
+    
     while 1:
         predictions = []
         try:
-            for i in tqdm(range(0, len(images), batch_size)):
+            for i in tqdm(range(0, len(images), batch_size), desc="Detecting Faces"):
                 predictions.extend(detector.get_detections_for_batch(np.array(images[i:i + batch_size])))
         except RuntimeError:
             if batch_size == 1: 
@@ -61,8 +63,14 @@ def face_detect(images, args):
 
 def datagen(frames, mels, args):
     img_batch, mel_batch, frame_batch, coords_batch = [], [], [], []
+
+    # OPTIMIZATION: If it's a static image, only detect face ONCE.
     if args.box[0] == -1:
-        face_det_results = face_detect([frames[0]] if args.static else frames, args)
+        if args.static:
+            print("Static image detected. Running face detection only once...")
+            face_det_results = face_detect([frames[0]], args)
+        else:
+            face_det_results = face_detect(frames, args)
     else:
         y1, y2, x1, x2 = args.box
         face_det_results = [[f[y1: y2, x1:x2], (y1, y2, x1, x2)] for f in frames]
@@ -70,7 +78,11 @@ def datagen(frames, mels, args):
     for i, m in enumerate(mels):
         idx = 0 if args.static else i % len(frames)
         frame_to_save = frames[idx].copy()
-        face, coords = face_det_results[idx].copy()
+        
+        # Use existing detection result for static or specific frame for video
+        res_idx = 0 if args.static else idx
+        face, coords = face_det_results[res_idx].copy()
+        
         face = cv2.resize(face, (args.img_size, args.img_size))
         
         img_batch.append(face)
@@ -104,9 +116,12 @@ def main():
     parser.add_argument('--static', type=bool, default=False)
     parser.add_argument('--fps', type=float, default=25.)
     parser.add_argument('--pads', nargs='+', type=int, default=[0, 10, 0, 0])
-    parser.add_argument('--face_det_batch_size', type=int, default=16)
-    parser.add_argument('--wav2lip_batch_size', type=int, default=128)
-    parser.add_argument('--resize_factor', default=1, type=int)
+    
+    # Defaults adjusted for low-resource environments
+    parser.add_argument('--face_det_batch_size', type=int, default=4)
+    parser.add_argument('--wav2lip_batch_size', type=int, default=8) 
+    parser.add_argument('--resize_factor', default=2, type=int) 
+    
     parser.add_argument('--crop', nargs='+', type=int, default=[0, -1, 0, -1])
     parser.add_argument('--box', nargs='+', type=int, default=[-1, -1, -1, -1])
     parser.add_argument('--rotate', default=False, action='store_true')
@@ -119,9 +134,13 @@ def main():
         args.static = True
 
     # 1. Load Frames
-    full_frames = [cv2.imread(args.face)] if args.static else []
-    fps = args.fps
-    if not args.static:
+    full_frames = []
+    if args.static:
+        img = cv2.imread(args.face)
+        if args.resize_factor > 1:
+            img = cv2.resize(img, (img.shape[1]//args.resize_factor, img.shape[0]//args.resize_factor))
+        full_frames.append(img)
+    else:
         video_stream = cv2.VideoCapture(args.face)
         fps = video_stream.get(cv2.CAP_PROP_FPS)
         while 1:
@@ -142,7 +161,7 @@ def main():
 
     # 3. Create Mel Chunks
     mel_chunks = []
-    mel_idx_multiplier = 80./fps 
+    mel_idx_multiplier = 80./args.fps 
     i = 0
     while 1:
         start_idx = int(i * mel_idx_multiplier)
@@ -152,8 +171,6 @@ def main():
         mel_chunks.append(mel[:, start_idx : start_idx + mel_step_size])
         i += 1
 
-    full_frames = full_frames[:len(mel_chunks)]
-    
     # 4. Run Inference
     model = Wav2Lip()
     checkpoint = torch.load(args.checkpoint_path, map_location='cpu' if device=='cpu' else None, weights_only=False)
@@ -173,12 +190,12 @@ def main():
 
     model = model.to(device).eval()
 
-    # 5. GENERATION LOOP (Crucial - You were missing this!)
-    gen = datagen(full_frames.copy(), mel_chunks, args)
+    # 5. GENERATION LOOP
+    gen = datagen(full_frames, mel_chunks, args)
     frame_h, frame_w = full_frames[0].shape[:-1]
-    out = cv2.VideoWriter('temp/result.avi', cv2.VideoWriter_fourcc(*'DIVX'), fps, (frame_w, frame_h))
+    out = cv2.VideoWriter('temp/result.avi', cv2.VideoWriter_fourcc(*'DIVX'), args.fps, (frame_w, frame_h))
 
-    for img_batch, mel_batch, frames, coords in tqdm(gen, total=int(np.ceil(float(len(mel_chunks))/args.wav2lip_batch_size))):
+    for img_batch, mel_batch, frames, coords in tqdm(gen, total=int(np.ceil(float(len(mel_chunks))/args.wav2lip_batch_size)), desc="Syncing Lips"):
         img_batch = torch.FloatTensor(np.transpose(img_batch, (0, 3, 1, 2))).to(device)
         mel_batch = torch.FloatTensor(np.transpose(mel_batch, (0, 3, 1, 2))).to(device)
 
