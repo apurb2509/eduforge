@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { Upload, Wand2, Loader2, PlayCircle, FileText, CheckCircle2, X } from 'lucide-react';
+import { Upload, Wand2, Loader2, PlayCircle, FileText, CheckCircle2, X, AlertCircle } from 'lucide-react';
 import axios from 'axios';
 
 const VideoGenerator = () => {
@@ -28,29 +28,32 @@ const VideoGenerator = () => {
   };
 
   const handleGenerate = async () => {
-    if (!script) return alert("Please enter a script first!");
-    if (!imageFile) return alert("Please upload an instructor image!");
+    if (!script) return alert("Please enter a script!");
+    if (!imageFile) return alert("Please upload an image!");
+
+    const title = prompt("Lecture Title?", "New AI Lesson");
+    if (!title) return; // Exit if user cancels prompt
 
     setLoading(true);
-    setStatus("Processing Audio & Lip-Sync...");
-    setVideoUrl(null);
+    setStatus("Initializing AI Models...");
+    setVideoUrl(null); // Clear previous video
 
     const formData = new FormData();
-    formData.append("script", script);
+    formData.append("text", script);
     formData.append("image", imageFile);
+    formData.append("title", title);
+    formData.append("instructor_name", "Apurb");
 
     try {
-      // Point this to your FastAPI endpoint
-      const response = await axios.post("http://localhost:8000/generate-video", formData, {
-        headers: { "Content-Type": "multipart/form-data" },
-      });
-
-      // Assuming your backend returns the path or URL of the generated video
-      setVideoUrl(response.data.video_url);
+      setStatus("Generating Speech & Lip-Sync...");
+      const res = await axios.post("http://127.0.0.1:8000/generate-video", formData);
+      
+      // Update video URL and status
+      setVideoUrl(res.data.video_url);
       setStatus("Video Generated Successfully!");
-    } catch (error) {
-      console.error("Error generating video:", error);
-      setStatus("Error: Could not connect to backend.");
+    } catch (err) {
+      console.error("Upload failed", err);
+      setStatus("Error: Failed to generate video.");
     } finally {
       setLoading(false);
     }
@@ -110,12 +113,14 @@ const VideoGenerator = () => {
             <button 
               onClick={handleGenerate}
               disabled={loading}
-              className="bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 text-white rounded-xl flex flex-col items-center justify-center gap-2 transition-all shadow-lg shadow-indigo-100 group"
+              className="bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 text-white rounded-xl flex flex-col items-center justify-center gap-2 transition-all shadow-lg shadow-indigo-100 group px-6 py-4"
             >
               {loading ? (
                 <div className="flex flex-col items-center gap-2">
                   <Loader2 className="animate-spin" size={28} />
-                  <span className="text-[10px] font-medium animate-pulse opacity-80 uppercase tracking-widest">{status}</span>
+                  <span className="text-[10px] font-medium animate-pulse opacity-80 uppercase tracking-widest">
+                    {status}
+                  </span>
                 </div>
               ) : (
                 <>
@@ -133,16 +138,17 @@ const VideoGenerator = () => {
         <div className="bg-slate-900 rounded-2xl aspect-video flex flex-col items-center justify-center border border-slate-800 shadow-xl overflow-hidden group relative">
           {videoUrl ? (
             <video 
-              src={`http://localhost:8000/${videoUrl}`} 
+              src={videoUrl} 
               controls 
-              className="w-full h-full"
+              autoPlay
+              className="w-full h-full object-contain"
             />
           ) : (
             <>
               <div className="absolute inset-0 bg-indigo-600/5 opacity-0 group-hover:opacity-100 transition-opacity" />
               <PlayCircle size={48} className={`${loading ? 'text-indigo-500 animate-pulse' : 'text-slate-700'} mb-2`} />
               <p className="text-slate-500 text-xs font-medium uppercase tracking-wider">
-                {loading ? "AI is rendering..." : "Video Preview"}
+                {loading ? status : "Video Preview"}
               </p>
             </>
           )}
@@ -153,7 +159,7 @@ const VideoGenerator = () => {
           <div className={`p-4 rounded-xl flex items-center gap-3 border animate-in slide-in-from-right-4 ${
             status.includes("Error") ? 'bg-red-50 border-red-100 text-red-700' : 'bg-green-50 border-green-100 text-green-700'
           }`}>
-            <CheckCircle2 size={18} />
+            {status.includes("Error") ? <AlertCircle size={18} /> : <CheckCircle2 size={18} />}
             <span className="text-sm font-medium">{status}</span>
           </div>
         )}
