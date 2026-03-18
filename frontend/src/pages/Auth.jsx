@@ -1,81 +1,154 @@
 import React, { useState } from 'react';
-import { Mail, Lock, User, GraduationCap, Presentation } from 'lucide-react';
+import axios from 'axios';
+import { User, ShieldCheck, Mail, Lock, UserPlus, LogIn, Loader2 } from 'lucide-react';
 
 const Auth = ({ onLogin }) => {
   const [isLogin, setIsLogin] = useState(true);
-  const [role, setRole] = useState('student');
+  const [loading, setLoading] = useState(false);
+  const [formData, setFormData] = useState({
+    email: '',
+    password: '',
+    full_name: '',
+    role: 'student' // Default role
+  });
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+
+    const endpoint = isLogin ? '/auth/login' : '/auth/register';
+    
+    try {
+      const res = await axios.post(`http://127.0.0.1:8000${endpoint}`, formData);
+      
+      if (isLogin) {
+        // Save to localStorage for App.jsx to pick up
+        localStorage.setItem("user", JSON.stringify(res.data.user));
+        onLogin(res.data.user);
+      } else {
+        alert("Account created! Please log in.");
+        setIsLogin(true);
+      }
+    } catch (err) {
+      alert(err.response?.data?.detail || "Authentication failed");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4">
-      <div className="max-w-md w-full bg-white rounded-2xl shadow-xl overflow-hidden border border-slate-200">
-        <div className="bg-indigo-600 p-8 text-center text-white">
-          <h2 className="text-3xl font-bold">EduForge</h2>
-          <p className="mt-2 text-indigo-100">Ignite your learning journey</p>
+    <div className="min-h-screen flex items-center justify-center bg-slate-50 p-4">
+      <div className="w-full max-w-md bg-white rounded-3xl shadow-xl border border-slate-200 overflow-hidden">
+        
+        {/* Toggle Header */}
+        <div className="flex border-b border-slate-100">
+          <button 
+            onClick={() => setIsLogin(true)}
+            className={`flex-1 py-4 font-bold text-sm transition-all ${isLogin ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-slate-400 hover:text-slate-600'}`}
+          >
+            SIGN IN
+          </button>
+          <button 
+            onClick={() => setIsLogin(false)}
+            className={`flex-1 py-4 font-bold text-sm transition-all ${!isLogin ? 'text-indigo-600 border-b-2 border-indigo-600' : 'text-slate-400 hover:text-slate-600'}`}
+          >
+            REGISTER
+          </button>
         </div>
 
         <div className="p-8">
-          {/* Toggle Login/Signup */}
-          <div className="flex bg-slate-100 p-1 rounded-xl mb-8">
-            <button 
-              onClick={() => setIsLogin(true)}
-              className={`flex-1 py-2 rounded-lg font-medium transition-all ${isLogin ? 'bg-white shadow-sm text-indigo-600' : 'text-slate-500'}`}
-            >
-              Login
-            </button>
-            <button 
-              onClick={() => setIsLogin(false)}
-              className={`flex-1 py-2 rounded-lg font-medium transition-all ${!isLogin ? 'bg-white shadow-sm text-indigo-600' : 'text-slate-500'}`}
-            >
-              Sign Up
-            </button>
+          <div className="text-center mb-8">
+            <h2 className="text-2xl font-bold text-slate-900">
+              {isLogin ? "Welcome Back" : "Create Account"}
+            </h2>
+            <p className="text-slate-500 text-sm mt-1">
+              {isLogin ? "Enter your credentials to continue" : "Join EduForge to start learning or teaching"}
+            </p>
           </div>
 
-          <form className="space-x-y-4">
+          <form onSubmit={handleSubmit} className="space-y-4">
             {!isLogin && (
-              <div className="relative mb-4">
-                <User className="absolute left-3 top-3 text-slate-400" size={20} />
-                <input type="text" placeholder="Full Name" className="w-full pl-10 pr-4 py-3 rounded-lg border border-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none" />
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase mb-1 ml-1">Full Name</label>
+                <div className="relative">
+                  <User className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                  <input 
+                    type="text" 
+                    required 
+                    className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none"
+                    placeholder="Apurb"
+                    onChange={(e) => setFormData({...formData, full_name: e.target.value})}
+                  />
+                </div>
               </div>
             )}
-            
-            <div className="relative mb-4">
-              <Mail className="absolute left-3 top-3 text-slate-400" size={20} />
-              <input type="email" placeholder="Email Address" className="w-full pl-10 pr-4 py-3 rounded-lg border border-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none" />
+
+            <div>
+              <label className="block text-xs font-bold text-slate-500 uppercase mb-1 ml-1">Email</label>
+              <div className="relative">
+                <Mail className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                <input 
+                  type="email" 
+                  required 
+                  className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none"
+                  placeholder="name@email.com"
+                  onChange={(e) => setFormData({...formData, email: e.target.value})}
+                />
+              </div>
             </div>
 
-            <div className="relative mb-6">
-              <Lock className="absolute left-3 top-3 text-slate-400" size={20} />
-              <input type="password" placeholder="Password" className="w-full pl-10 pr-4 py-3 rounded-lg border border-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none" />
+            <div>
+              <label className="block text-xs font-bold text-slate-500 uppercase mb-1 ml-1">Password</label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
+                <input 
+                  type="password" 
+                  required 
+                  className="w-full pl-10 pr-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none"
+                  placeholder="••••••••"
+                  onChange={(e) => setFormData({...formData, password: e.target.value})}
+                />
+              </div>
             </div>
 
-            {/* Role Selection */}
+            {/* --- ROLE TOGGLE (Only shown during Registration) --- */}
             {!isLogin && (
-              <div className="grid grid-cols-2 gap-4 mb-8">
-                <button 
-                  type="button"
-                  onClick={() => setRole('student')}
-                  className={`p-4 rounded-xl border-2 flex flex-col items-center transition-all ${role === 'student' ? 'border-indigo-600 bg-indigo-50' : 'border-slate-100 hover:border-slate-200'}`}
-                >
-                  <GraduationCap className={role === 'student' ? 'text-indigo-600' : 'text-slate-400'} />
-                  <span className={`text-sm mt-2 font-medium ${role === 'student' ? 'text-indigo-600' : 'text-slate-600'}`}>Student</span>
-                </button>
-                <button 
-                  type="button"
-                  onClick={() => setRole('instructor')}
-                  className={`p-4 rounded-xl border-2 flex flex-col items-center transition-all ${role === 'instructor' ? 'border-indigo-600 bg-indigo-50' : 'border-slate-100 hover:border-slate-200'}`}
-                >
-                  <Presentation className={role === 'instructor' ? 'text-indigo-600' : 'text-slate-400'} />
-                  <span className={`text-sm mt-2 font-medium ${role === 'instructor' ? 'text-indigo-600' : 'text-slate-600'}`}>Instructor</span>
-                </button>
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase mb-2 ml-1">I am a...</label>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setFormData({...formData, role: 'student'})}
+                    className={`flex items-center justify-center gap-2 py-3 rounded-xl border-2 transition-all ${
+                      formData.role === 'student' 
+                      ? 'border-indigo-600 bg-indigo-50 text-indigo-700' 
+                      : 'border-slate-100 bg-slate-50 text-slate-500 hover:border-slate-200'
+                    }`}
+                  >
+                    <User size={18} /> <span className="text-sm font-bold">Student</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFormData({...formData, role: 'instructor'})}
+                    className={`flex items-center justify-center gap-2 py-3 rounded-xl border-2 transition-all ${
+                      formData.role === 'instructor' 
+                      ? 'border-indigo-600 bg-indigo-50 text-indigo-700' 
+                      : 'border-slate-100 bg-slate-50 text-slate-500 hover:border-slate-200'
+                    }`}
+                  >
+                    <ShieldCheck size={18} /> <span className="text-sm font-bold">Instructor</span>
+                  </button>
+                </div>
               </div>
             )}
 
             <button 
-              type="button"
-              onClick={() => onLogin({ name: 'Apurb', role: isLogin ? 'instructor' : role })}
-              className="w-full bg-indigo-600 text-white py-3 rounded-xl font-bold hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-200"
+              type="submit" 
+              disabled={loading}
+              className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-4 rounded-xl shadow-lg shadow-indigo-100 flex items-center justify-center gap-2 mt-4"
             >
-              {isLogin ? 'Welcome Back' : 'Create Account'}
+              {loading ? <Loader2 className="animate-spin" /> : (isLogin ? <LogIn size={20}/> : <UserPlus size={20}/>)}
+              {isLogin ? "Sign In" : "Create Account"}
             </button>
           </form>
         </div>

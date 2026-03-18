@@ -14,6 +14,10 @@ from services.notes_service import NotesService
 from services.lipsync_service import LipSyncService
 from utils.cleanup import clear_old_files
 
+from sqlalchemy.orm import Session
+from passlib.context import CryptContext
+from database import SessionLocal, User, VideoLecture
+
 # Database Imports
 from database import SessionLocal, VideoLecture, engine, Base
 
@@ -125,28 +129,65 @@ async def get_all_lectures(db: Session = Depends(get_db)):
 async def generate_notes(text: str = Form(...)):
     return notes_service.generate_notes(text)
 
-# --- AUTH LOGIC (Corrected with UserAuth model) ---
-users_db = {} 
+# Setup Password Hashing
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+# --- AUTH HELPER FUNCTIONS ---
+def get_password_hash(password):
+    # Truncate to 72 bytes to satisfy bcrypt's limit
+    return pwd_context.hash(password[:72])
+
+def verify_password(plain_password, hashed_password):
+    return pwd_context.verify(plain_password, hashed_password)
+
+# --- UPDATED AUTH ROUTES ---
 
 @app.post("/auth/register")
-async def register(user: UserAuth):
-    if user.email in users_db:
+async def register(user_data: UserAuth, db: Session = Depends(get_db)):
+    # Check if user exists in SQLite
+    existing_user = db.query(User).filter(User.email == user_data.email).first()
+    if existing_user:
         raise HTTPException(status_code=400, detail="Email already registered")
     
-    users_db[user.email] = user.dict()
-    return {"message": f"User registered as {user.role}"}
+    # Create new user in SQLite
+    new_user = User(
+        full_name=user_data.full_name,
+        email=user_data.email,
+        hashed_password=get_password_hash(user_data.password),
+        role=user_data.role
+    )
+    db.add(new_user)
+    db.commit()
+    db.refresh(new_user)
+    
+    return {"message": "User created in database", "user_id": new_user.id}
 
 @app.post("/auth/login")
-async def login(user_data: UserAuth):
-    user = users_db.get(user_data.email)
-    if not user or user["password"] != user_data.password:
-        raise HTTPException(status_code=401, detail="Invalid credentials")
+async def login(user_data: UserAuth, db: Session = Depends(get_db)):
+    # Look up user in SQLite
+    user = db.query(User).filter(User.email == user_data.email).first()
     
-    return {"status": "success", "name": user["full_name"], "role": user["role"]}
+    if not user or not verify_password(user_data.password, user.hashed_password):
+        raise HTTPException(status_code=401, detail="Invalid email or password")
+    
+    return {
+        "status": "success",
+        "user": {
+            "name": user.full_name,
+            "email": user.email,
+            "role": user.role
+        }
+    }
 
 @app.get("/")
 def read_root():
     return {"message": "EduForge Backend API is running smoothly"}
+
+@app.get("/lectures")
+async def get_all_lectures():
+    # Your logic to fetch from eduforge.db
+    # Example: return db.query(Lecture).all()
+    pass
 
 if __name__ == "__main__":
     import uvicorn
