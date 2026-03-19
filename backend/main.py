@@ -1,11 +1,13 @@
 import os
 import time
 import uuid
-from fastapi import FastAPI, UploadFile, File, Form, Depends, HTTPException
+import asyncio
+from fastapi import FastAPI, UploadFile, File, Form, Depends, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
+from passlib.context import CryptContext
 
 # Import your services
 from services.tts_service import TTSService
@@ -14,12 +16,8 @@ from services.notes_service import NotesService
 from services.lipsync_service import LipSyncService
 from utils.cleanup import clear_old_files
 
-from sqlalchemy.orm import Session
-from passlib.context import CryptContext
-from database import SessionLocal, User, VideoLecture
-
 # Database Imports
-from database import SessionLocal, VideoLecture, engine, Base
+from database import SessionLocal, User, VideoLecture, engine, Base
 
 # Initialize Database Tables on Startup
 Base.metadata.create_all(bind=engine)
@@ -30,7 +28,28 @@ video_service = VideoService()
 notes_service = NotesService()
 lipsync = LipSyncService()
 
-# --- Pydantic Models for Type Safety ---
+# --- WebSocket Connection Manager ---
+class ConnectionManager:
+    def __init__(self):
+        self.active_connections: list[WebSocket] = []
+
+    async def connect(self, websocket: WebSocket):
+        await websocket.accept()
+        self.active_connections.append(websocket)
+
+    def disconnect(self, websocket: WebSocket):
+        self.active_connections.remove(websocket)
+
+    async def broadcast_progress(self, message: dict):
+        for connection in self.active_connections:
+            try:
+                await connection.send_json(message)
+            except:
+                continue
+
+manager = ConnectionManager()
+
+# --- Pydantic Models ---
 class UserAuth(BaseModel):
     email: str
     password: str
@@ -48,6 +67,7 @@ def get_db():
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -58,7 +78,18 @@ if not os.path.exists(TEMP_DIR):
 
 app.mount("/static", StaticFiles(directory=TEMP_DIR), name="static")
 
-# --- GENERATE VIDEO ENDPOINT ---
+# --- WebSocket Endpoint ---
+@app.websocket("/ws/progress")
+async def websocket_endpoint(websocket: WebSocket):
+    await manager.connect(websocket)
+    try:
+        while True:
+            # Keep connection alive
+            await websocket.receive_text()
+    except WebSocketDisconnect:
+        manager.disconnect(websocket)
+
+# --- GENERATE VIDEO ENDPOINT (With Real-Time Progress) ---
 @app.post("/generate-video")
 async def generate_video(
     text: str = Form(...), 
@@ -67,10 +98,11 @@ async def generate_video(
     instructor_name: str = Form("Instructor"),
     db: Session = Depends(get_db)
 ):
-    # 1. Cleanup old files
+    # 1. Start Progress
+    await manager.broadcast_progress({"progress": 5, "status": "Cleaning old files..."})
     clear_old_files(TEMP_DIR)
     
-    # 2. Setup Unique Paths
+    # 2. Setup Paths
     timestamp = int(time.time())
     unique_id = uuid.uuid4().hex[:6]
     image_filename = f"input_{timestamp}_{unique_id}.jpg"
@@ -79,20 +111,29 @@ async def generate_video(
     video_filename = f"output_{timestamp}_{unique_id}.mp4"
     video_path = os.path.join(TEMP_DIR, video_filename)
 
-    # Save uploaded image
+    # 3. Save Image
+    await manager.broadcast_progress({"progress": 15, "status": "Processing Image..."})
     content = await image.read()
     with open(image_path, "wb") as buffer:
         buffer.write(content)
     
-    # Generate speech
+    # 4. Generate Speech
+    await manager.broadcast_progress({"progress": 30, "status": "Generating Speech..."})
     await tts.generate_speech(text, audio_path)
     
-    # 3. AI LipSync (Fallback to static if it fails)
+    # 5. AI LipSync
+    await manager.broadcast_progress({"progress": 50, "status": "Syncing Lips (AI Processing)..."})
+    
+    # Simulation for UI smoothness (Optional)
+    await asyncio.sleep(0.5) 
+    
     success = lipsync.run_sync(image_path, audio_path, video_path)
+    
+    await manager.broadcast_progress({"progress": 85, "status": "Finalizing Video..."})
     if not success:
         video_service.create_static_video(image_path, audio_path, video_path)
 
-    # 4. Save to Database
+    # 6. Save to Database (Permanent Record)
     new_lecture = VideoLecture(
         title=title,
         instructor_name=instructor_name,
@@ -103,53 +144,63 @@ async def generate_video(
     db.commit()
     db.refresh(new_lecture)
 
+    # 7. Complete Progress
+    await manager.broadcast_progress({"progress": 100, "status": "Completed!"})
+
     return {
         "status": "completed",
         "video_url": f"http://127.0.0.1:8000/static/{video_filename}",
-        "lecture_id": new_lecture.id,
-        "method": "AI LipSync" if success else "Static Fallback"
+        "lecture_id": new_lecture.id
     }
 
-# --- STUDENT GALLERY ENDPOINT ---
+# --- UNIFIED LECTURES ENDPOINT ---
+@app.get("/lectures")
 @app.get("/student/lectures")
 async def get_all_lectures(db: Session = Depends(get_db)):
+    # Note: If you add an 'is_hidden' column to VideoLecture, add .filter(VideoLecture.is_hidden == False) here
     lectures = db.query(VideoLecture).order_by(VideoLecture.created_at.desc()).all()
     return [
         {
             "id": l.id,
             "title": l.title,
-            "instructor": l.instructor_name,
-            "video_url": f"http://127.0.0.1:8000/static/{l.video_url}",
+"description": l.description or "No description provided.", # NEW FIELD
+"instructor": l.instructor_name,
+            "video_url": l.video_url, # Return only the filename (e.g., "output_123.mp4")
             "preview": l.script_preview,
-            "date": l.created_at.strftime("%Y-%m-%d")
+            "date": l.created_at.strftime("%Y-%m-%d") if l.created_at else "Recent"
         } for l in lectures
     ]
 
-@app.post("/generate-notes")
-async def generate_notes(text: str = Form(...)):
-    return notes_service.generate_notes(text)
+class LectureUpdate(BaseModel):
+    title: str
+    description: str
 
-# Setup Password Hashing
+@app.patch("/lectures/{lecture_id}")
+async def update_lecture(lecture_id: int, data: LectureUpdate, db: Session = Depends(get_db)):
+    lecture = db.query(VideoLecture).filter(VideoLecture.id == lecture_id).first()
+    if not lecture:
+        raise HTTPException(status_code=404, detail="Lecture not found")
+    
+    lecture.title = data.title
+    lecture.description = data.description
+    db.commit()
+    return {"message": "Updated successfully"}
+
+# --- AUTH LOGIC ---
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
-# --- AUTH HELPER FUNCTIONS ---
 def get_password_hash(password):
-    # Truncate to 72 bytes to satisfy bcrypt's limit
     return pwd_context.hash(password[:72])
 
 def verify_password(plain_password, hashed_password):
     return pwd_context.verify(plain_password, hashed_password)
 
-# --- UPDATED AUTH ROUTES ---
-
 @app.post("/auth/register")
 async def register(user_data: UserAuth, db: Session = Depends(get_db)):
-    # Check if user exists in SQLite
     existing_user = db.query(User).filter(User.email == user_data.email).first()
     if existing_user:
         raise HTTPException(status_code=400, detail="Email already registered")
     
-    # Create new user in SQLite
     new_user = User(
         full_name=user_data.full_name,
         email=user_data.email,
@@ -159,21 +210,18 @@ async def register(user_data: UserAuth, db: Session = Depends(get_db)):
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
-    
-    return {"message": "User created in database", "user_id": new_user.id}
+    return {"message": "User created", "user_id": new_user.id}
 
 @app.post("/auth/login")
 async def login(user_data: UserAuth, db: Session = Depends(get_db)):
-    # Look up user in SQLite
     user = db.query(User).filter(User.email == user_data.email).first()
-    
     if not user or not verify_password(user_data.password, user.hashed_password):
         raise HTTPException(status_code=401, detail="Invalid email or password")
     
     return {
         "status": "success",
         "user": {
-            "name": user.full_name,
+            "full_name": user.full_name,
             "email": user.email,
             "role": user.role
         }
@@ -181,13 +229,7 @@ async def login(user_data: UserAuth, db: Session = Depends(get_db)):
 
 @app.get("/")
 def read_root():
-    return {"message": "EduForge Backend API is running smoothly"}
-
-@app.get("/lectures")
-async def get_all_lectures():
-    # Your logic to fetch from eduforge.db
-    # Example: return db.query(Lecture).all()
-    pass
+    return {"message": "EduForge API Active"}
 
 if __name__ == "__main__":
     import uvicorn

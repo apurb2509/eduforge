@@ -13,6 +13,7 @@ class VideoLecture(Base):
     __tablename__ = "lectures"
     id = Column(Integer, primary_key=True, index=True)
     title = Column(String)
+    description = Column(String, nullable=True)
     instructor_name = Column(String)
     video_url = Column(String)
     script_preview = Column(String)

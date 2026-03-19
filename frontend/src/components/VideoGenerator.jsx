@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Upload, Wand2, Loader2, PlayCircle, FileText, CheckCircle2, X, AlertCircle } from 'lucide-react';
 import axios from 'axios';
 
@@ -9,7 +9,25 @@ const VideoGenerator = () => {
   const [imagePreview, setImagePreview] = useState(null);
   const [videoUrl, setVideoUrl] = useState(null);
   const [status, setStatus] = useState("");
+  const [progress, setProgress] = useState(0); // New state for real-time %
   const fileInputRef = useRef(null);
+
+  // --- WebSocket Listener for Real-Time Progress ---
+  useEffect(() => {
+    const socket = new WebSocket('ws://127.0.0.1:8000/ws/progress');
+
+    socket.onmessage = (event) => {
+      const data = JSON.parse(event.data);
+      if (data.progress !== undefined) {
+        setProgress(data.progress);
+        setStatus(data.status || "Processing...");
+      }
+    };
+
+    socket.onerror = () => console.error("WebSocket error");
+    
+    return () => socket.close();
+  }, []);
 
   // Handle Image Selection
   const handleImageChange = (e) => {
@@ -32,11 +50,12 @@ const VideoGenerator = () => {
     if (!imageFile) return alert("Please upload an image!");
 
     const title = prompt("Lecture Title?", "New AI Lesson");
-    if (!title) return; // Exit if user cancels prompt
+    if (!title) return;
 
     setLoading(true);
-    setStatus("Initializing AI Models...");
-    setVideoUrl(null); // Clear previous video
+    setProgress(0); // Reset progress
+    setStatus("Connecting to AI Engine...");
+    setVideoUrl(null);
 
     const formData = new FormData();
     formData.append("text", script);
@@ -45,10 +64,7 @@ const VideoGenerator = () => {
     formData.append("instructor_name", "Apurb");
 
     try {
-      setStatus("Generating Speech & Lip-Sync...");
       const res = await axios.post("http://127.0.0.1:8000/generate-video", formData);
-      
-      // Update video URL and status
       setVideoUrl(res.data.video_url);
       setStatus("Video Generated Successfully!");
     } catch (err) {
@@ -116,9 +132,19 @@ const VideoGenerator = () => {
               className="bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 text-white rounded-xl flex flex-col items-center justify-center gap-2 transition-all shadow-lg shadow-indigo-100 group px-6 py-4"
             >
               {loading ? (
-                <div className="flex flex-col items-center gap-2">
-                  <Loader2 className="animate-spin" size={28} />
-                  <span className="text-[10px] font-medium animate-pulse opacity-80 uppercase tracking-widest">
+                <div className="flex flex-col items-center gap-2 w-full">
+                  <div className="flex items-center gap-3">
+                    <Loader2 className="animate-spin" size={24} />
+                    <span className="font-bold">{progress}%</span>
+                  </div>
+                  {/* Progress Bar Inside Button */}
+                  <div className="w-full bg-indigo-400/30 h-1.5 rounded-full mt-1 overflow-hidden">
+                    <div 
+                      className="bg-white h-full transition-all duration-500" 
+                      style={{ width: `${progress}%` }}
+                    />
+                  </div>
+                  <span className="text-[9px] font-bold uppercase tracking-widest opacity-90 truncate max-w-[150px]">
                     {status}
                   </span>
                 </div>
@@ -146,10 +172,22 @@ const VideoGenerator = () => {
           ) : (
             <>
               <div className="absolute inset-0 bg-indigo-600/5 opacity-0 group-hover:opacity-100 transition-opacity" />
-              <PlayCircle size={48} className={`${loading ? 'text-indigo-500 animate-pulse' : 'text-slate-700'} mb-2`} />
-              <p className="text-slate-500 text-xs font-medium uppercase tracking-wider">
-                {loading ? status : "Video Preview"}
-              </p>
+              {loading ? (
+                <div className="flex flex-col items-center">
+                   <div className="relative flex items-center justify-center mb-4">
+                      <Loader2 size={64} className="text-indigo-500 animate-spin absolute" />
+                      <span className="text-indigo-400 text-xs font-bold">{progress}%</span>
+                   </div>
+                   <p className="text-slate-500 text-[10px] font-bold uppercase tracking-[0.2em] animate-pulse">
+                     {status}
+                   </p>
+                </div>
+              ) : (
+                <>
+                  <PlayCircle size={48} className="text-slate-700 mb-2" />
+                  <p className="text-slate-500 text-xs font-medium uppercase tracking-wider">Video Preview</p>
+                </>
+              )}
             </>
           )}
         </div>
@@ -174,10 +212,6 @@ const VideoGenerator = () => {
             <li className="flex gap-2">
               <span className="text-indigo-500 font-bold">•</span>
               Keep scripts under 500 words for faster processing.
-            </li>
-            <li className="flex gap-2">
-              <span className="text-indigo-500 font-bold">•</span>
-              Ensure your lighting is consistent in the photo.
             </li>
           </ul>
         </div>
