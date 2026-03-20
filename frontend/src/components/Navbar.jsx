@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Layout, LogOut, Video, Library, User } from 'lucide-react';
+import { Layout, LogOut, Video, User, FolderArchive } from 'lucide-react';
 
 const Navbar = ({ user, onLogout }) => {
   const navigate = useNavigate();
@@ -24,20 +24,20 @@ const Navbar = ({ user, onLogout }) => {
           </span>
         </Link>
 
-        {/* Dynamic Navigation Links */}
+        {/* Navigation Links */}
         <div className="hidden md:flex items-center gap-8">
           {user.role === 'instructor' ? (
             <>
               <Link to="/instructor-dashboard" className="text-sm font-semibold text-slate-600 hover:text-indigo-600 flex items-center gap-2">
                 <Video size={18} /> Create Lecture
               </Link>
-              <Link to="/student-gallery" className="text-sm font-semibold text-slate-600 hover:text-indigo-600 flex items-center gap-2">
-                <Library size={18} /> View Archive
+              <Link to="/archive" className="text-sm font-semibold text-slate-600 hover:text-indigo-600 flex items-center gap-2">
+                <FolderArchive size={18} /> View Archive
               </Link>
             </>
           ) : (
             <Link to="/student-gallery" className="text-sm font-semibold text-slate-600 hover:text-indigo-600 flex items-center gap-2">
-              <Library size={18} /> My Gallery
+              <FolderArchive size={18} /> My Gallery
             </Link>
           )}
         </div>
@@ -45,7 +45,7 @@ const Navbar = ({ user, onLogout }) => {
         {/* User Profile & Logout */}
         <div className="flex items-center gap-4">
           <div className="hidden sm:flex flex-col items-end mr-2">
-            <span className="text-sm font-bold text-slate-900">{user.full_name || 'Apurb'}</span>
+            <span className="text-sm font-bold text-slate-900">{user.full_name || 'Instructor'}</span>
             <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-500 bg-indigo-50 px-2 py-0.5 rounded-full">
               {user.role}
             </span>

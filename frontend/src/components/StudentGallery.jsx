@@ -68,24 +68,31 @@ const StudentGallery = () => {
           title: newTitle,
           description: newDescription,
         });
-        fetchLectures(); // Dynamically refresh the list
+        fetchLectures(); // Dynamically refresh the list for real-time updates
       } catch (error) {
         console.error("Error updating lecture:", error);
-        alert("Failed to update lecture. Make sure the backend endpoint is ready.");
+        alert("Failed to update lecture. Check if the server is running.");
       }
     }
   };
 
-  // --- 6. Soft Delete / Hide Logic ---
-  const handleHideFromStudent = (e, id) => {
+  // --- 6. Hard Delete Logic ---
+  const handleDelete = async (e, id) => {
     e.stopPropagation();
     if (
       !window.confirm(
-        "Remove this lecture from your view? (It will remain in the system)"
+        "Are you sure you want to permanently delete this lecture? This action cannot be undone."
       )
     )
       return;
-    setLectures((prev) => prev.filter((l) => l.id !== id));
+    
+    try {
+        await axios.delete(`${API_BASE_URL}/lectures/${id}`);
+        fetchLectures(); // Refresh list after deletion
+    } catch (err) {
+        console.error("Delete failed", err);
+        alert("Failed to delete lecture.");
+    }
   };
 
   // --- 7. Loading State View ---
@@ -156,7 +163,7 @@ const StudentGallery = () => {
                     <Edit size={18} />
                   </button>
                   <button
-                    onClick={(e) => handleHideFromStudent(e, lecture.id)}
+                    onClick={(e) => handleDelete(e, lecture.id)}
                     className="p-2 bg-white/90 text-red-500 rounded-xl shadow-md hover:bg-red-500 hover:text-white transition-all"
                     title="Delete Lecture"
                   >
@@ -187,7 +194,8 @@ const StudentGallery = () => {
                 <h3 className="text-xl font-bold text-slate-900 mb-1 truncate">
                   {lecture.title}
                 </h3>
-                {/* Description Box */}
+                
+                {/* Description Box - Dynamic for students and teachers */}
                 <p className="text-sm text-slate-600 mb-4 line-clamp-2 min-h-[40px]">
                   {lecture.description || "No description provided."}
                 </p>

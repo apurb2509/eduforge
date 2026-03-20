@@ -16,8 +16,8 @@ from services.notes_service import NotesService
 from services.lipsync_service import LipSyncService
 from utils.cleanup import clear_old_files
 
-# Database Imports
-from database import SessionLocal, User, VideoLecture, engine, Base
+# Database Imports - Import all models directly from database.py
+from database import SessionLocal, User, VideoLecture, Playlist, engine, Base
 
 # Initialize Database Tables on Startup
 Base.metadata.create_all(bind=engine)
@@ -55,6 +55,15 @@ class UserAuth(BaseModel):
     password: str
     full_name: str = None
     role: str = "student"
+
+class LectureUpdate(BaseModel):
+    title: str
+    description: str
+    playlist_id: int = None # Allow moving video to a playlist
+
+class PlaylistCreate(BaseModel):
+    name: str
+    description: str = ""
 
 # Dependency to get DB session
 def get_db():
@@ -95,6 +104,7 @@ async def generate_video(
     text: str = Form(...), 
     image: UploadFile = File(...), 
     title: str = Form("Untitled Lecture"),
+    description: str = Form(""), # Added description field
     instructor_name: str = Form("Instructor"),
     db: Session = Depends(get_db)
 ):
@@ -124,7 +134,7 @@ async def generate_video(
     # 5. AI LipSync
     await manager.broadcast_progress({"progress": 50, "status": "Syncing Lips (AI Processing)..."})
     
-    # Simulation for UI smoothness (Optional)
+    # Simulation for UI smoothness
     await asyncio.sleep(0.5) 
     
     success = lipsync.run_sync(image_path, audio_path, video_path)
@@ -136,6 +146,7 @@ async def generate_video(
     # 6. Save to Database (Permanent Record)
     new_lecture = VideoLecture(
         title=title,
+        description=description, # Saving description to DB
         instructor_name=instructor_name,
         video_url=video_filename,
         script_preview=text[:100]
@@ -157,34 +168,59 @@ async def generate_video(
 @app.get("/lectures")
 @app.get("/student/lectures")
 async def get_all_lectures(db: Session = Depends(get_db)):
-    # Note: If you add an 'is_hidden' column to VideoLecture, add .filter(VideoLecture.is_hidden == False) here
     lectures = db.query(VideoLecture).order_by(VideoLecture.created_at.desc()).all()
     return [
         {
             "id": l.id,
             "title": l.title,
-"description": l.description or "No description provided.", # NEW FIELD
-"instructor": l.instructor_name,
-            "video_url": l.video_url, # Return only the filename (e.g., "output_123.mp4")
+            "description": l.description or "No description provided.",
+            "instructor": l.instructor_name,
+            "video_url": l.video_url, 
             "preview": l.script_preview,
             "date": l.created_at.strftime("%Y-%m-%d") if l.created_at else "Recent"
         } for l in lectures
     ]
 
-class LectureUpdate(BaseModel):
-    title: str
-    description: str
-
 @app.patch("/lectures/{lecture_id}")
-async def update_lecture(lecture_id: int, data: LectureUpdate, db: Session = Depends(get_db)):
+async def update_lecture(
+    lecture_id: int, 
+    title: str = Form(...),
+    description: str = Form(...),
+    playlist_id: int = Form(None),
+    thumbnail: UploadFile = File(None), # Optional new thumbnail
+    db: Session = Depends(get_db)
+):
     lecture = db.query(VideoLecture).filter(VideoLecture.id == lecture_id).first()
     if not lecture:
         raise HTTPException(status_code=404, detail="Lecture not found")
     
-    lecture.title = data.title
-    lecture.description = data.description
+    lecture.title = title
+    lecture.description = description
+    lecture.playlist_id = playlist_id
+
+    if thumbnail:
+        # Save the new custom thumbnail
+        ts = int(time.time())
+        thumb_filename = f"thumb_{ts}_{lecture_id}.jpg"
+        thumb_path = os.path.join(TEMP_DIR, thumb_filename)
+        content = await thumbnail.read()
+        with open(thumb_path, "wb") as f:
+            f.write(content)
+        lecture.thumbnail_url = thumb_filename
+
     db.commit()
     return {"message": "Updated successfully"}
+
+# --- DELETE LECTURE ENDPOINT (For Archive Management) ---
+@app.delete("/lectures/{lecture_id}")
+async def delete_lecture(lecture_id: int, db: Session = Depends(get_db)):
+    lecture = db.query(VideoLecture).filter(VideoLecture.id == lecture_id).first()
+    if not lecture:
+        raise HTTPException(status_code=404, detail="Lecture not found")
+    
+    db.delete(lecture)
+    db.commit()
+    return {"message": "Lecture deleted successfully"}
 
 # --- AUTH LOGIC ---
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -226,6 +262,29 @@ async def login(user_data: UserAuth, db: Session = Depends(get_db)):
             "role": user.role
         }
     }
+
+@app.post("/playlists")
+async def create_playlist(data: PlaylistCreate, db: Session = Depends(get_db)):
+    new_p = Playlist(name=data.name, description=data.description)
+    db.add(new_p)
+    db.commit()
+    db.refresh(new_p)
+    return new_p
+
+@app.get("/playlists")
+async def get_playlists(db: Session = Depends(get_db)):
+    # Returns playlists with their nested videos
+    return db.query(Playlist).all()
+
+@app.delete("/playlists/{playlist_id}")
+async def delete_playlist(playlist_id: int, db: Session = Depends(get_db)):
+    p = db.query(Playlist).filter(Playlist.id == playlist_id).first()
+    if p:
+        # Unlink videos before deleting playlist
+        db.query(VideoLecture).filter(VideoLecture.playlist_id == playlist_id).update({"playlist_id": None})
+        db.delete(p)
+        db.commit()
+    return {"message": "Playlist removed"}
 
 @app.get("/")
 def read_root():

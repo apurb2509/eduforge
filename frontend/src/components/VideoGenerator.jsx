@@ -9,7 +9,13 @@ const VideoGenerator = () => {
   const [imagePreview, setImagePreview] = useState(null);
   const [videoUrl, setVideoUrl] = useState(null);
   const [status, setStatus] = useState("");
-  const [progress, setProgress] = useState(0); // New state for real-time %
+  const [progress, setProgress] = useState(0); 
+  
+  // --- New states for Title & Description ---
+  const [showModal, setShowModal] = useState(false);
+  const [lectureTitle, setLectureTitle] = useState("");
+  const [description, setDescription] = useState("");
+  
   const fileInputRef = useRef(null);
 
   // --- WebSocket Listener for Real-Time Progress ---
@@ -29,7 +35,6 @@ const VideoGenerator = () => {
     return () => socket.close();
   }, []);
 
-  // Handle Image Selection
   const handleImageChange = (e) => {
     const file = e.target.files[0];
     if (file) {
@@ -38,35 +43,42 @@ const VideoGenerator = () => {
     }
   };
 
-  // Remove Selected Image
   const removeImage = () => {
     setImageFile(null);
     setImagePreview(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
   };
 
-  const handleGenerate = async () => {
+  // Triggered when user clicks "Generate AI Lecture"
+  const startGenerationFlow = () => {
     if (!script) return alert("Please enter a script!");
     if (!imageFile) return alert("Please upload an image!");
+    setShowModal(true); // Show the title/description modal
+  };
 
-    const title = prompt("Lecture Title?", "New AI Lesson");
-    if (!title) return;
-
+  const handleGenerate = async () => {
+    if (!lectureTitle) return alert("Please enter a title!");
+    
+    setShowModal(false);
     setLoading(true);
-    setProgress(0); // Reset progress
+    setProgress(0); 
     setStatus("Connecting to AI Engine...");
     setVideoUrl(null);
 
     const formData = new FormData();
     formData.append("text", script);
     formData.append("image", imageFile);
-    formData.append("title", title);
+    formData.append("title", lectureTitle);
+    formData.append("description", description); // Sent to updated backend
     formData.append("instructor_name", "Apurb");
 
     try {
       const res = await axios.post("http://127.0.0.1:8000/generate-video", formData);
       setVideoUrl(res.data.video_url);
       setStatus("Video Generated Successfully!");
+      // Reset inputs after success
+      setLectureTitle("");
+      setDescription("");
     } catch (err) {
       console.error("Upload failed", err);
       setStatus("Error: Failed to generate video.");
@@ -92,7 +104,6 @@ const VideoGenerator = () => {
           />
           
           <div className="mt-6 grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Image Upload Area */}
             <div 
               onClick={() => fileInputRef.current.click()}
               className={`relative border-2 border-dashed rounded-xl p-8 flex flex-col items-center justify-center transition-all cursor-pointer group ${
@@ -127,7 +138,7 @@ const VideoGenerator = () => {
             </div>
             
             <button 
-              onClick={handleGenerate}
+              onClick={startGenerationFlow}
               disabled={loading}
               className="bg-indigo-600 hover:bg-indigo-700 disabled:bg-slate-300 text-white rounded-xl flex flex-col items-center justify-center gap-2 transition-all shadow-lg shadow-indigo-100 group px-6 py-4"
             >
@@ -137,7 +148,6 @@ const VideoGenerator = () => {
                     <Loader2 className="animate-spin" size={24} />
                     <span className="font-bold">{progress}%</span>
                   </div>
-                  {/* Progress Bar Inside Button */}
                   <div className="w-full bg-indigo-400/30 h-1.5 rounded-full mt-1 overflow-hidden">
                     <div 
                       className="bg-white h-full transition-all duration-500" 
@@ -163,12 +173,7 @@ const VideoGenerator = () => {
       <div className="space-y-6">
         <div className="bg-slate-900 rounded-2xl aspect-video flex flex-col items-center justify-center border border-slate-800 shadow-xl overflow-hidden group relative">
           {videoUrl ? (
-            <video 
-              src={videoUrl} 
-              controls 
-              autoPlay
-              className="w-full h-full object-contain"
-            />
+            <video src={videoUrl} controls autoPlay className="w-full h-full object-contain" />
           ) : (
             <>
               <div className="absolute inset-0 bg-indigo-600/5 opacity-0 group-hover:opacity-100 transition-opacity" />
@@ -192,7 +197,6 @@ const VideoGenerator = () => {
           )}
         </div>
         
-        {/* Status Notification */}
         {status && !loading && (
           <div className={`p-4 rounded-xl flex items-center gap-3 border animate-in slide-in-from-right-4 ${
             status.includes("Error") ? 'bg-red-50 border-red-100 text-red-700' : 'bg-green-50 border-green-100 text-green-700'
@@ -216,6 +220,56 @@ const VideoGenerator = () => {
           </ul>
         </div>
       </div>
+
+      {/* --- NEW MODAL FOR TITLE & DESCRIPTION --- */}
+      {showModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="bg-white w-full max-w-md rounded-3xl shadow-2xl p-8 border border-slate-100 transform animate-in zoom-in-95 duration-200">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-xl font-bold text-slate-900">Lecture Details</h2>
+              <button onClick={() => setShowModal(false)} className="text-slate-400 hover:text-slate-600"><X size={20}/></button>
+            </div>
+            
+            <div className="space-y-5">
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Lecture Title</label>
+                <input 
+                  type="text"
+                  value={lectureTitle}
+                  onChange={(e) => setLectureTitle(e.target.value)}
+                  placeholder="e.g., Intro to Anatomy"
+                  className="w-full p-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none text-slate-700"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-500 uppercase tracking-widest mb-2">Description / Caption</label>
+                <textarea 
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  placeholder="Provide a brief summary for students..."
+                  className="w-full p-3 h-32 rounded-xl border border-slate-200 focus:ring-2 focus:ring-indigo-500 outline-none text-slate-700 resize-none"
+                />
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button 
+                  onClick={() => setShowModal(false)}
+                  className="flex-1 py-3 rounded-xl font-bold text-slate-500 hover:bg-slate-50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button 
+                  onClick={handleGenerate}
+                  className="flex-1 py-3 rounded-xl font-bold bg-indigo-600 text-white hover:bg-indigo-700 shadow-lg shadow-indigo-100 transition-all"
+                >
+                  Start Processing
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

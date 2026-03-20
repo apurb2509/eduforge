@@ -4,6 +4,7 @@ import Navbar from './components/Navbar';
 import Auth from './pages/Auth';
 import VideoGenerator from './components/VideoGenerator'; 
 import StudentGallery from './components/StudentGallery';
+import ViewArchive from './components/ViewArchive'; // Import the new Archive component
 import ProtectedRoute from './components/ProtectedRoute';
 
 function App() {
@@ -43,7 +44,7 @@ function App() {
               } 
             />
 
-            {/* Instructor Protected Route */}
+            {/* Instructor Protected Route - Dashboard */}
             <Route 
               path="/instructor-dashboard" 
               element={
@@ -54,6 +55,22 @@ function App() {
                       <p className="text-slate-500 mt-1">Transform your knowledge into AI-powered video lectures.</p>
                     </div>
                     <VideoGenerator />
+                  </div>
+                </ProtectedRoute>
+              } 
+            />
+
+            {/* NEW: Instructor Protected Route - Archive Management */}
+            <Route 
+              path="/archive" 
+              element={
+                <ProtectedRoute user={user} allowedRole="instructor">
+                  <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
+                    <div className="mb-8">
+                      <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Lecture Archive</h1>
+                      <p className="text-slate-500 mt-1">Manage your videos, playlists, and thumbnails.</p>
+                    </div>
+                    <ViewArchive />
                   </div>
                 </ProtectedRoute>
               } 
