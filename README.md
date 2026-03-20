@@ -1,103 +1,124 @@
-<!-- ## AI Components Status
-- [x] Text-to-Speech: Edge-TTS (Active)
-- [ ] Talking Head: Wav2Lip/SadTalker (In Progress)
-- [x] Media Engine: FFmpeg (Active)
+# 🎓 EduForge: AI-Powered Autonomous Learning Platform
 
-Commands for running the servers: 
-Backend: (.venv) PS G:\Projects\eduforge\backend> .\venv\Scripts\python.exe -m uvicorn main:app --reload
-(.venv) PS G:\Projects\eduforge\backend> python -m uvicorn main:app --reload
-Frontend: npm run dev -->
-
-# 🎓 EduForge: AI-Powered Learning Platform
-
-EduForge is a full-stack educational platform that empowers instructors to transform static knowledge into engaging, AI-generated video lectures. Built with a modern tech stack, it features role-based access control, secure authentication, and a dynamic student gallery.
+EduForge is a cutting-edge, full-stack educational ecosystem designed to bridge the gap between static text and immersive video learning. By leveraging Generative AI (Edge-TTS) and Automated Media Engines (FFmpeg), EduForge allows instructors to transform raw scripts into fully produced video lectures with synchronized audio and visual assets.
 
 ---
 
-## 🚀 Key Features
+## 🏗️ System Architecture & Current Progress
 
-* **AI Video Generation**: Instructors can generate scripts and video content using integrated AI workflows.
-* **Role-Based Access (RBAC)**: Secure separation between **Instructor** (Content Creators) and **Student** (Learners) dashboards.
-* **Secure Authentication**: Password hashing using `Bcrypt` and persistent sessions via `JWT/LocalStorage`.
-* **Dynamic Gallery**: A responsive student portal to browse, search, and playback AI-generated lectures.
-* **Automated Workflow**: From script generation to video output, stored and served via a FastAPI backend.
+The platform is currently in **Phase 2 (Functional Prototype)**. All core authentication, role-based navigation, and media management systems are fully operational.
+
+---
+
+## 🟢 Completed Milestones
+
+* [x] **Secure Auth Engine**: JWT-based persistent sessions with Bcrypt password hashing.
+* [x] **Dual-Interface UX**: Specialized dashboards for Instructors (Content Creation) and Students (Content Consumption).
+* [x] **AI Audio Pipeline**: Integration with Edge-TTS for high-fidelity natural speech synthesis.
+* [x] **Media Assembly Engine**: FFmpeg integration for automated video/audio muxing and thumbnail generation.
+* [x] **Archive Management**: Full CRUD capabilities for lectures and a custom Playlist Orchestrator.
+* [x] **Responsive Navigation**: Real-time tab switching between Video and Playlist views.
+
+---
+
+## 🟡 In-Progress (Roadmap)
+
+* [ ] **Wav2Lip / SadTalker**: Implementing neural lip-sync for AI talking heads.
+* [ ] **Vector Search (RAG)**: Enabling students to query lecture content via AI.
+* [ ] **Progress Analytics**: Visual tracking of student watch-time and completion rates.
 
 ---
 
 ## 🛠️ Tech Stack
 
-### Frontend
-
-* **Framework**: React.js (Vite)
-* **Routing**: React Router Dom v6
-* **Styling**: Tailwind CSS & Lucide Icons
-* **API Client**: Axios
-
-### Backend
-
-* **Framework**: FastAPI (Python)
-* **Database**: SQLite (SQLAlchemy ORM)
-* **Security**: Passlib with Bcrypt (4.0.1)
-* **Media**: Static file serving for AI-generated `.mp4` outputs
+| Layer      | Technology                                         |
+| ---------- | -------------------------------------------------- |
+| Frontend   | React 18 (Vite), Tailwind CSS, Lucide Icons, Axios |
+| Backend    | FastAPI (Python 3.10+), Uvicorn                    |
+| Database   | SQLite with SQLAlchemy ORM                         |
+| AI / Media | Edge-TTS, FFmpeg, Python-Multipart                 |
+| Security   | JWT (JSON Web Tokens), Passlib (Bcrypt)            |
 
 ---
 
-## ⚙️ Installation & Setup
+## 🚀 Installation & Rapid Deployment
 
-### 1. Clone the Repository
+Follow these steps to replicate the development environment.
+
+### 1. Repository Initialization
 
 ```bash
 git clone https://github.com/YOUR_USERNAME/eduforge.git
 cd eduforge
 ```
 
-### 2. Backend Setup
+### 2. Backend Environment Setup
+
+Open a terminal in the `/backend` directory:
 
 ```bash
-cd backend
+# Create and activate virtual environment
 python -m venv .venv
-source .venv/bin/activate  # Or .venv\\Scripts\\activate on Windows
+
+# Windows
+.venv\Scripts\activate
+
+# Linux/macOS
+source .venv/bin/activate
+
+# Install dependencies
 pip install -r requirements.txt
-python -m uvicorn main:app --reload
 ```
 
-### 3. Frontend Setup
+### 3. Frontend Environment Setup
+
+Open a second terminal in the `/frontend` directory:
 
 ```bash
-cd frontend
 npm install
+```
+
+---
+
+## 💻 Execution Commands
+
+To run the application locally, ensure you have two terminal instances active.
+
+### Terminal 1: FastAPI Backend
+
+Navigate to the backend folder and run:
+
+```bash
+# Standard Reload Mode
+python -m uvicorn main:app --reload --port 8000
+```
+
+### Terminal 2: Vite Frontend
+
+Navigate to the frontend folder and run:
+
+```bash
 npm run dev
 ```
 
 ---
 
-## 📁 Project Structure
+## 📂 Professional Project Structure
 
-* `/backend`: FastAPI logic, SQLite database (eduforge.db), and AI output storage.
-* `/frontend`: React components, protected routes, and Tailwind styling.
-* `/outputs`: Directory for generated AI video and image assets.
-
----
-
-## 🛡️ Roadmap
-
-* [x] Secure Authentication & Role Toggle
-* [x] Protected Routing for Instructors/Students
-* [x] Dynamic Video Gallery & Playback
-* [ ] Automated Email Notifications for new lectures
-* [ ] Student Progress Tracking
-* [ ] Wav2Lip Integration for AI Lip-Synced Video Generation
-
----
-
-## 👨‍💻 Author
-
-Developed by **Apurb**
-3rd Year Electronics & Instrumentation Engineering
-NIT Rourkela
-
----
-
-## 🚀 Deployment Notes
-
-Make sure to configure environment variables and production-ready settings before deploying. Consider using platforms like Vercel (frontend) and Render/ Railway (backend) for seamless hosting.
+```plaintext
+eduforge/
+├── backend/
+│   ├── main.py            # FastAPI Entry Point
+│   ├── database.py        # SQLAlchemy Config
+│   ├── models.py          # SQL User & Media Schemas
+│   ├── schemas.py         # Pydantic Validation
+│   ├── utils/             # TTS & FFmpeg Logic
+│   └── static/            # Generated AI Video/Image Assets
+├── frontend/
+│   ├── src/
+│   │   ├── components/    # Reusable UI (Navbar, Modals)
+│   │   ├── pages/         # Dashboard, Archive, Gallery
+│   │   └── App.jsx        # Routing Logic
+│   └── tailwind.config.js # Custom Design Tokens
+└── requirements.txt       # Backend Dependencies
+```
