@@ -39,12 +39,22 @@ class ConnectionManager:
         self.active_connections.append(websocket)
 
     def disconnect(self, websocket: WebSocket):
-        self.active_connections.remove(websocket)
+        if websocket in self.active_connections:
+            self.active_connections.remove(websocket)
 
     async def broadcast_progress(self, message: dict):
         for connection in self.active_connections:
             try:
                 await connection.send_json(message)
+            except:
+                continue
+
+    # --- ADD THIS METHOD ---
+    async def broadcast_refresh(self):
+        """Sends a signal to all clients to refresh their data"""
+        for connection in self.active_connections:
+            try:
+                await connection.send_json({"type": "REFRESH_DATA"})
             except:
                 continue
 
@@ -159,6 +169,7 @@ async def generate_video(
 
     # 7. Complete Progress
     await manager.broadcast_progress({"progress": 100, "status": "Completed!"})
+    await manager.broadcast_refresh()
 
     return {
         "status": "completed",
@@ -211,6 +222,7 @@ async def update_lecture(
         lecture.thumbnail_url = thumb_filename
 
     db.commit()
+    await manager.broadcast_refresh()
     return {"message": "Updated successfully"}
 
 # --- DELETE LECTURE ENDPOINT (For Archive Management) ---
@@ -267,20 +279,25 @@ async def login(user_data: UserAuth, db: Session = Depends(get_db)):
 
 @app.post("/playlists")
 async def create_playlist(data: PlaylistCreate, db: Session = Depends(get_db)):
-    # 1. Create and save the new playlist
+    # 1. Create the Playlist object
     new_p = Playlist(name=data.name, description=data.description)
     db.add(new_p)
-    db.commit()
-    db.refresh(new_p)
+    db.flush() # Get the ID before committing
     
-    # 2. Link the selected videos to this new playlist
+    # 2. Update the lectures to point to this new playlist
     if data.video_ids:
         db.query(VideoLecture).filter(VideoLecture.id.in_(data.video_ids)).update(
             {"playlist_id": new_p.id}, 
             synchronize_session=False
         )
-        db.commit()
-        
+    
+    # 3. Commit EVERYTHING to the database
+    db.commit()
+    db.refresh(new_p)
+    
+    # 4. NOW broadcast to students (after DB is 100% updated)
+    await manager.broadcast_refresh() 
+    
     return new_p
 
 @app.get("/playlists")
@@ -293,10 +310,11 @@ async def get_playlists(db: Session = Depends(get_db)):
 async def delete_playlist(playlist_id: int, db: Session = Depends(get_db)):
     p = db.query(Playlist).filter(Playlist.id == playlist_id).first()
     if p:
-        # Unlink videos before deleting playlist
         db.query(VideoLecture).filter(VideoLecture.playlist_id == playlist_id).update({"playlist_id": None})
         db.delete(p)
         db.commit()
+        # --- ADD THIS LINE ---
+        await manager.broadcast_refresh()
     return {"message": "Playlist removed"}
 
 # --- UNLINK VIDEO FROM PLAYLIST ---
@@ -308,6 +326,8 @@ async def unlink_video(lecture_id: int, db: Session = Depends(get_db)):
     
     lecture.playlist_id = None
     db.commit()
+    # --- ADD THIS LINE ---
+    await manager.broadcast_refresh()
     return {"message": "Video unlinked from playlist"}
 
 # Ensure your get_playlists still uses joinedload as discussed:

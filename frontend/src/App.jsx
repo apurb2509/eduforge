@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import React, { useState } from 'react'; // Removed useEffect
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import Navbar from './components/Navbar';
 import Auth from './pages/Auth';
 import VideoGenerator from './components/VideoGenerator'; 
@@ -7,16 +7,52 @@ import StudentGallery from './components/StudentGallery';
 import ViewArchive from './components/ViewArchive';
 import ProtectedRoute from './components/ProtectedRoute';
 
+// Derived Navigation: No more cascading renders or unused effect errors
+const NavigationManager = ({ user, onLogout, activeTab, setActiveTab }) => {
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  // Pure function to determine active state from the URL
+  const getActivePage = () => {
+    const path = location.pathname;
+    if (path === '/instructor-dashboard') return 'upload';
+    if (path === '/archive') return 'archive';
+    if (path === '/student-gallery') return 'dashboard';
+    return 'dashboard';
+  };
+
+  const handlePageChange = (pageId) => {
+    if (pageId === 'upload') navigate('/instructor-dashboard');
+    else if (pageId === 'archive') navigate('/archive');
+    else if (pageId === 'dashboard') {
+      navigate(user.role === 'instructor' ? '/instructor-dashboard' : '/student-gallery');
+    }
+  };
+
+  return (
+    <Navbar 
+      user={user} 
+      onLogout={onLogout} 
+      activePage={getActivePage()} 
+      setActivePage={handlePageChange}
+      activeTab={activeTab}
+      setActiveTab={setActiveTab}
+    />
+  );
+};
+
 function App() {
   const [user, setUser] = useState(() => {
     const savedUser = localStorage.getItem("user");
     try {
       return savedUser ? JSON.parse(savedUser) : null;
     } catch (error) {
-      console.error("Failed to parse user from localStorage", error);
+      console.error("Failed to parse user", error);
       return null;
     }
   });
+
+  const [activeTab, setActiveTab] = useState('videos');
 
   const handleLogout = () => {
     localStorage.removeItem("user");
@@ -26,31 +62,33 @@ function App() {
   return (
     <Router>
       <div className="h-screen w-full bg-slate-50 flex flex-col overflow-hidden">
-        {user && <Navbar user={user} onLogout={handleLogout} />}
+        {user && (
+          <NavigationManager 
+            user={user} 
+            onLogout={handleLogout} 
+            activeTab={activeTab} 
+            setActiveTab={setActiveTab} 
+          />
+        )}
         
-        {/* pb-0 here ensures the 'main' container doesn't overflow the viewport */}
-        <main className="flex-1 overflow-y-auto pt-0 pb-0 w-full h-full">
+        <main className="flex-1 overflow-y-auto w-full h-full">
           <Routes>
             <Route 
               path="/" 
-              element={
-                !user ? (
-                  <Auth onLogin={setUser} />
-                ) : (
-                  <Navigate to={user.role === 'instructor' ? "/instructor-dashboard" : "/student-gallery"} replace />
-                )
-              } 
+              element={!user ? (
+                <Auth onLogin={setUser} />
+              ) : (
+                <Navigate to={user.role === 'instructor' ? "/instructor-dashboard" : "/student-gallery"} replace />
+              )} 
             />
 
             <Route 
               path="/instructor-dashboard" 
               element={
                 <ProtectedRoute user={user} allowedRole="instructor">
-                  {/* Padding is handled inside the route to keep Auth screens clean */}
-                  <div className="animate-in fade-in slide-in-from-bottom-2 duration-500 px-6 md:px-12 pt-20 pb-8">
+                  <div className="animate-in fade-in slide-in-from-bottom-2 duration-500 px-6 md:px-12 pt-24 pb-8">
                     <div className="mb-6">
                       <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Instructor Dashboard</h1>
-                      <p className="text-slate-500 text-sm">Transform your knowledge into AI-powered video lectures.</p>
                     </div>
                     <VideoGenerator user={user} />
                   </div>
@@ -62,12 +100,7 @@ function App() {
               path="/archive" 
               element={
                 <ProtectedRoute user={user} allowedRole="instructor">
-                  <div className="animate-in fade-in slide-in-from-bottom-2 duration-500 px-6 md:px-12 pt-20 pb-8">
-                    <div className="mb-4">
-                      <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Lecture Archive</h1>
-                    </div>
-                    <ViewArchive user={user} />
-                  </div>
+                  <ViewArchive user={user} activeTab={activeTab} />
                 </ProtectedRoute>
               } 
             />
@@ -76,12 +109,7 @@ function App() {
               path="/student-gallery" 
               element={
                 <ProtectedRoute user={user} allowedRole="student">
-                  <div className="animate-in fade-in slide-in-from-bottom-2 duration-500 px-6 md:px-12 pt-20 pb-8">
-                    <div className="mb-4">
-                      <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Student Gallery</h1>
-                    </div>
-                    <StudentGallery />
-                  </div>
+                  <StudentGallery activeTab={activeTab} />
                 </ProtectedRoute>
               } 
             />
