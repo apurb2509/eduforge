@@ -22,3 +22,7 @@ models/
 backend/temp/*
 
 backend/models/checkpoints/*.pth
+
+echo "*.db" >> .gitignore
+echo "__pycache__/" >> .gitignore
+echo ".venv/" >> .gitignore
