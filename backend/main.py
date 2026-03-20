@@ -6,6 +6,7 @@ from fastapi import FastAPI, UploadFile, File, Form, Depends, HTTPException, Web
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
+from sqlalchemy.orm import joinedload # Add this import at the top
 from pydantic import BaseModel
 from passlib.context import CryptContext
 
@@ -64,6 +65,7 @@ class LectureUpdate(BaseModel):
 class PlaylistCreate(BaseModel):
     name: str
     description: str = ""
+    video_ids: list[int] = []
 
 # Dependency to get DB session
 def get_db():
@@ -265,16 +267,27 @@ async def login(user_data: UserAuth, db: Session = Depends(get_db)):
 
 @app.post("/playlists")
 async def create_playlist(data: PlaylistCreate, db: Session = Depends(get_db)):
+    # 1. Create and save the new playlist
     new_p = Playlist(name=data.name, description=data.description)
     db.add(new_p)
     db.commit()
     db.refresh(new_p)
+    
+    # 2. Link the selected videos to this new playlist
+    if data.video_ids:
+        db.query(VideoLecture).filter(VideoLecture.id.in_(data.video_ids)).update(
+            {"playlist_id": new_p.id}, 
+            synchronize_session=False
+        )
+        db.commit()
+        
     return new_p
 
 @app.get("/playlists")
 async def get_playlists(db: Session = Depends(get_db)):
-    # Returns playlists with their nested videos
-    return db.query(Playlist).all()
+    # Use joinedload to explicitly include the 'videos' relationship in the result
+    playlists = db.query(Playlist).options(joinedload(Playlist.videos)).all()
+    return playlists
 
 @app.delete("/playlists/{playlist_id}")
 async def delete_playlist(playlist_id: int, db: Session = Depends(get_db)):
@@ -285,6 +298,22 @@ async def delete_playlist(playlist_id: int, db: Session = Depends(get_db)):
         db.delete(p)
         db.commit()
     return {"message": "Playlist removed"}
+
+# --- UNLINK VIDEO FROM PLAYLIST ---
+@app.post("/lectures/{lecture_id}/unlink")
+async def unlink_video(lecture_id: int, db: Session = Depends(get_db)):
+    lecture = db.query(VideoLecture).filter(VideoLecture.id == lecture_id).first()
+    if not lecture:
+        raise HTTPException(status_code=404, detail="Lecture not found")
+    
+    lecture.playlist_id = None
+    db.commit()
+    return {"message": "Video unlinked from playlist"}
+
+# Ensure your get_playlists still uses joinedload as discussed:
+@app.get("/playlists")
+async def get_playlists(db: Session = Depends(get_db)):
+    return db.query(Playlist).options(joinedload(Playlist.videos)).all()
 
 @app.get("/")
 def read_root():
