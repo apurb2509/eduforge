@@ -12,18 +12,15 @@ const Login = () => {
     setLoading(true);
 
     try {
-      // Connects to your FastAPI /auth/login endpoint
       const res = await axios.post("http://127.0.0.1:8000/auth/login", {
         email,
         password,
-        full_name: "", // Optional for login
-        role: ""       // Backend ignores this on login
+        full_name: "", 
+        role: ""      
       });
 
-      // Save user data to localStorage
       localStorage.setItem("user", JSON.stringify(res.data.user));
 
-      // Redirect based on role
       if (res.data.user.role === "instructor") {
         window.location.href = "/instructor-dashboard";
       } else {
@@ -37,8 +34,13 @@ const Login = () => {
   };
 
   return (
-    <div className="min-h-[80vh] flex items-center justify-center">
-      <div className="bg-white p-8 rounded-3xl border border-slate-200 shadow-xl w-full max-w-md">
+    /* Updated wrapper: 
+       - fixed inset-0: Covers entire viewport
+       - z-[100]: Ensures it sits above Navbar and all other content
+       - overflow-hidden: Prevents any scrolling on the Auth screens
+    */
+    <div className="fixed inset-0 w-full h-full flex items-center justify-center bg-slate-50 z-[100] overflow-hidden">
+      <div className="bg-white p-8 rounded-3xl border border-slate-200 shadow-xl w-full max-w-md mx-4 animate-in fade-in zoom-in-95 duration-300">
         <div className="text-center mb-8">
           <div className="bg-indigo-100 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4">
             <LogIn className="text-indigo-600" size={32} />

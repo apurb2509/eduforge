@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Upload, Wand2, Loader2, PlayCircle, FileText, CheckCircle2, X, AlertCircle } from 'lucide-react';
 import axios from 'axios';
 
-const VideoGenerator = () => {
+const VideoGenerator = ({ user }) => {
   const [loading, setLoading] = useState(false);
   const [script, setScript] = useState("");
   const [imageFile, setImageFile] = useState(null);
@@ -20,19 +20,37 @@ const VideoGenerator = () => {
 
   // --- WebSocket Listener for Real-Time Progress ---
   useEffect(() => {
-    const socket = new WebSocket('ws://127.0.0.1:8000/ws/progress');
-
-    socket.onmessage = (event) => {
-      const data = JSON.parse(event.data);
-      if (data.progress !== undefined) {
-        setProgress(data.progress);
-        setStatus(data.status || "Processing...");
+    let socket;
+    
+    const connectWS = () => {
+      // Standardize to localhost for better compatibility with some systems
+      socket = new WebSocket('ws://localhost:8000/ws/progress');
+  
+      socket.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          if (data.progress !== undefined) {
+            setProgress(data.progress);
+            setStatus(data.status || "Processing...");
+          }
+        } catch (err) {
+          console.error("Failed to parse WS message", err);
+        }
+      };
+  
+      socket.onerror = () => {
+        console.log("WS connection pending...");
+      };
+    };
+  
+    connectWS();
+  
+    // CLEANUP: This is the most important part
+    return () => {
+      if (socket && socket.readyState === WebSocket.OPEN) {
+        socket.close();
       }
     };
-
-    socket.onerror = () => console.error("WebSocket error");
-    
-    return () => socket.close();
   }, []);
 
   const handleImageChange = (e) => {
@@ -70,7 +88,7 @@ const VideoGenerator = () => {
     formData.append("image", imageFile);
     formData.append("title", lectureTitle);
     formData.append("description", description); // Sent to updated backend
-    formData.append("instructor_name", "Apurb");
+    formData.append("instructor_name", user?.name || "Instructor");
 
     try {
       const res = await axios.post("http://127.0.0.1:8000/generate-video", formData);

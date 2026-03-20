@@ -4,11 +4,10 @@ import Navbar from './components/Navbar';
 import Auth from './pages/Auth';
 import VideoGenerator from './components/VideoGenerator'; 
 import StudentGallery from './components/StudentGallery';
-import ViewArchive from './components/ViewArchive'; // Import the new Archive component
+import ViewArchive from './components/ViewArchive';
 import ProtectedRoute from './components/ProtectedRoute';
 
 function App() {
-  // Initialize user state from localStorage
   const [user, setUser] = useState(() => {
     const savedUser = localStorage.getItem("user");
     try {
@@ -26,13 +25,12 @@ function App() {
 
   return (
     <Router>
-      <div className="min-h-screen bg-slate-50">
-        {/* Only show Navbar if user is logged in */}
+      <div className="h-screen w-full bg-slate-50 flex flex-col overflow-hidden">
         {user && <Navbar user={user} onLogout={handleLogout} />}
         
-        <main className="pt-24 pb-12 px-4 max-w-7xl mx-auto">
+        {/* pb-0 here ensures the 'main' container doesn't overflow the viewport */}
+        <main className="flex-1 overflow-y-auto pt-0 pb-0 w-full h-full">
           <Routes>
-            {/* Login/Register Route */}
             <Route 
               path="/" 
               element={
@@ -44,47 +42,43 @@ function App() {
               } 
             />
 
-            {/* Instructor Protected Route - Dashboard */}
             <Route 
               path="/instructor-dashboard" 
               element={
                 <ProtectedRoute user={user} allowedRole="instructor">
-                  <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
-                    <div className="mb-8">
-                      <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Instructor Dashboard</h1>
-                      <p className="text-slate-500 mt-1">Transform your knowledge into AI-powered video lectures.</p>
+                  {/* Padding is handled inside the route to keep Auth screens clean */}
+                  <div className="animate-in fade-in slide-in-from-bottom-2 duration-500 px-6 md:px-12 pt-20 pb-8">
+                    <div className="mb-6">
+                      <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Instructor Dashboard</h1>
+                      <p className="text-slate-500 text-sm">Transform your knowledge into AI-powered video lectures.</p>
                     </div>
-                    <VideoGenerator />
+                    <VideoGenerator user={user} />
                   </div>
                 </ProtectedRoute>
               } 
             />
 
-            {/* NEW: Instructor Protected Route - Archive Management */}
             <Route 
               path="/archive" 
               element={
                 <ProtectedRoute user={user} allowedRole="instructor">
-                  <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
-                    <div className="mb-8">
-                      <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Lecture Archive</h1>
-                      <p className="text-slate-500 mt-1">Manage your videos, playlists, and thumbnails.</p>
+                  <div className="animate-in fade-in slide-in-from-bottom-2 duration-500 px-6 md:px-12 pt-20 pb-8">
+                    <div className="mb-4">
+                      <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Lecture Archive</h1>
                     </div>
-                    <ViewArchive />
+                    <ViewArchive user={user} />
                   </div>
                 </ProtectedRoute>
               } 
             />
 
-            {/* Student Protected Route */}
             <Route 
               path="/student-gallery" 
               element={
                 <ProtectedRoute user={user} allowedRole="student">
-                  <div className="animate-in fade-in slide-in-from-bottom-4 duration-700">
-                    <div className="mb-8">
-                      <h1 className="text-3xl font-bold text-slate-900 tracking-tight">Student Gallery</h1>
-                      <p className="text-slate-500 mt-1">Browse and watch AI-generated lectures.</p>
+                  <div className="animate-in fade-in slide-in-from-bottom-2 duration-500 px-6 md:px-12 pt-20 pb-8">
+                    <div className="mb-4">
+                      <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Student Gallery</h1>
                     </div>
                     <StudentGallery />
                   </div>
@@ -92,7 +86,6 @@ function App() {
               } 
             />
 
-            {/* Redirect any unknown routes to home */}
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </main>
