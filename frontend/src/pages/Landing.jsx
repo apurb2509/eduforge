@@ -2,7 +2,7 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Compass, Zap, Target, Shield, ArrowRight, Layout } from 'lucide-react';
 import Footer from '../components/Footer';
-import heroBg from '../assets/hero-pic-1.jpg'; 
+import heroBg from '../assets/carousel-1.jpg'; 
 
 const Landing = () => {
   const navigate = useNavigate();
