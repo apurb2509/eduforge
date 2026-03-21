@@ -61,7 +61,7 @@ function App() {
 
   return (
     <Router>
-      <div className="h-screen w-full bg-slate-50 flex flex-col overflow-hidden">
+      <div className="min-h-screen w-full bg-slate-50 flex flex-col">
         {/* Navbar only shows if a user is logged in */}
         {user && (
           <NavigationManager 
@@ -72,7 +72,7 @@ function App() {
           />
         )}
         
-        <main className="flex-1 overflow-y-auto w-full h-full">
+        <main className="flex-1 w-full relative">
           <Routes>
             {/* 1. Public Landing Page */}
             <Route path="/" element={<Landing />} />

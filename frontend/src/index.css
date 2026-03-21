@@ -8,17 +8,24 @@
 
 /* index.css */
 @layer base {
-  html, body, #root {
-    margin: 0;
-    padding: 0;
-    width: 100%;
-    height: 100%;
-    overflow: hidden !important;
+  html.lenis, html.lenis body {
+    height: auto;
   }
 
-  /* This ensures that any padding we add doesn't 'grow' the box size */
-  * {
-    box-sizing: border-box;
+  .lenis.lenis-smooth {
+    scroll-behavior: auto !important;
+  }
+
+  .lenis.lenis-smooth [data-lenis-prevent] {
+    overscroll-behavior: contain;
+  }
+
+  .lenis.lenis-stopped {
+    overflow: hidden;
+  }
+
+  .lenis.lenis-scrolling iframe {
+    pointer-events: none;
   }
 }
 
