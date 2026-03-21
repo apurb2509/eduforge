@@ -1,4 +1,4 @@
-import React, { useState } from 'react'; // Removed useEffect
+import React, { useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useNavigate } from 'react-router-dom';
 import Navbar from './components/Navbar';
 import Auth from './pages/Auth';
@@ -6,13 +6,13 @@ import VideoGenerator from './components/VideoGenerator';
 import StudentGallery from './components/StudentGallery';
 import ViewArchive from './components/ViewArchive';
 import ProtectedRoute from './components/ProtectedRoute';
+import Landing from './pages/Landing';
 
-// Derived Navigation: No more cascading renders or unused effect errors
+// Derived Navigation: Manages Navbar visibility and active states
 const NavigationManager = ({ user, onLogout, activeTab, setActiveTab }) => {
   const location = useLocation();
   const navigate = useNavigate();
 
-  // Pure function to determine active state from the URL
   const getActivePage = () => {
     const path = location.pathname;
     if (path === '/instructor-dashboard') return 'upload';
@@ -62,6 +62,7 @@ function App() {
   return (
     <Router>
       <div className="h-screen w-full bg-slate-50 flex flex-col overflow-hidden">
+        {/* Navbar only shows if a user is logged in */}
         {user && (
           <NavigationManager 
             user={user} 
@@ -73,8 +74,12 @@ function App() {
         
         <main className="flex-1 overflow-y-auto w-full h-full">
           <Routes>
+            {/* 1. Public Landing Page */}
+            <Route path="/" element={<Landing />} />
+            
+            {/* 2. Dedicated Auth Route */}
             <Route 
-              path="/" 
+              path="/auth" 
               element={!user ? (
                 <Auth onLogin={setUser} />
               ) : (
@@ -82,6 +87,7 @@ function App() {
               )} 
             />
 
+            {/* 3. Instructor Routes */}
             <Route 
               path="/instructor-dashboard" 
               element={
@@ -105,6 +111,7 @@ function App() {
               } 
             />
 
+            {/* 4. Student Routes */}
             <Route 
               path="/student-gallery" 
               element={
@@ -114,6 +121,7 @@ function App() {
               } 
             />
 
+            {/* Default Catch-all */}
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </main>
