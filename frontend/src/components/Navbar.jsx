@@ -1,21 +1,21 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { Layout, LogOut, Video, User, FolderArchive, Layers } from 'lucide-react';
+import { Layout, LogOut, Video, User, FolderArchive, Layers, Menu, X } from 'lucide-react';
 
 const Navbar = ({ user, onLogout, activeTab, setActiveTab }) => {
   const navigate = useNavigate();
   const location = useLocation();
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
 
   const handleLogoutClick = () => {
     onLogout();
     navigate('/');
   };
 
-  // Helper to change tab AND navigate to the correct page
   const handleTabChange = (tab) => {
     setActiveTab(tab);
+    setIsMenuOpen(false);
     
-    // Redirect logic: If not already on an archive/gallery page, go there
     if (user.role === 'instructor' && location.pathname !== '/archive') {
       navigate('/archive');
     } else if (user.role === 'student' && location.pathname !== '/student-gallery') {
@@ -37,7 +37,7 @@ const Navbar = ({ user, onLogout, activeTab, setActiveTab }) => {
           </span>
         </Link>
 
-        {/* Navigation Links */}
+        {/* Desktop Navigation Links - Hidden on mobile, visible on md+ */}
         <div className="hidden md:flex items-center gap-8">
           {user.role === 'instructor' ? (
             <Link 
@@ -59,10 +59,8 @@ const Navbar = ({ user, onLogout, activeTab, setActiveTab }) => {
             </Link>
           )}
 
-          {/* Vertical Divider */}
           <div className="h-6 w-px bg-slate-200 mx-2" />
 
-          {/* Functional Toggle Tabs */}
           <div className="flex bg-slate-100 p-1 rounded-lg">
             <button 
               onClick={() => handleTabChange('videos')}
@@ -72,8 +70,7 @@ const Navbar = ({ user, onLogout, activeTab, setActiveTab }) => {
                 : 'text-slate-500 hover:text-slate-700'
               }`}
             >
-              <Video size={14} />
-              Videos
+              <Video size={14} /> Videos
             </button>
             <button 
               onClick={() => handleTabChange('playlists')}
@@ -83,14 +80,13 @@ const Navbar = ({ user, onLogout, activeTab, setActiveTab }) => {
                 : 'text-slate-500 hover:text-slate-700'
               }`}
             >
-              <Layers size={14} />
-              Playlists
+              <Layers size={14} /> Playlists
             </button>
           </div>
         </div>
 
-        {/* User Profile & Logout */}
-        <div className="flex items-center gap-4">
+        {/* User Profile & Actions */}
+        <div className="flex items-center gap-2 sm:gap-4">
           <div className="hidden sm:flex flex-col items-end mr-2">
             <span className="text-sm font-bold text-slate-900">{user.full_name || 'User'}</span>
             <span className="text-[10px] font-bold uppercase tracking-wider text-indigo-500 bg-indigo-50 px-2 py-0.5 rounded-full">
@@ -102,15 +98,53 @@ const Navbar = ({ user, onLogout, activeTab, setActiveTab }) => {
             <User size={20} className="text-slate-500" />
           </div>
 
+          {/* Mobile Menu Button - ONLY visible on small screens */}
+          <button 
+            onClick={() => setIsMenuOpen(!isMenuOpen)}
+            className="md:hidden p-2 text-slate-600 hover:bg-slate-50 rounded-lg transition-colors"
+          >
+            {isMenuOpen ? <X size={24} /> : <Menu size={24} />}
+          </button>
+
           <button 
             onClick={handleLogoutClick}
-            className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"
+            className="hidden md:block p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-all"
             title="Logout"
           >
             <LogOut size={20} />
           </button>
         </div>
       </div>
+
+      {/* Mobile Dropdown - Doesn't affect desktop layout */}
+      {isMenuOpen && (
+        <div className="md:hidden bg-white border-b border-slate-200 p-4 space-y-4 animate-in slide-in-from-top duration-200">
+          <div className="flex flex-col gap-2">
+            {user.role === 'instructor' ? (
+              <Link to="/instructor-dashboard" onClick={() => setIsMenuOpen(false)} className="flex items-center gap-3 p-3 rounded-xl hover:bg-slate-50 text-sm font-bold text-slate-700">
+                <Video size={18} /> Create Lecture
+              </Link>
+            ) : (
+              <Link to="/student-gallery" onClick={() => setIsMenuOpen(false)} className="flex items-center gap-3 p-3 rounded-xl hover:bg-slate-50 text-sm font-bold text-slate-700">
+                <FolderArchive size={18} /> My Gallery
+              </Link>
+            )}
+          </div>
+          
+          <div className="flex bg-slate-100 p-1 rounded-xl">
+            <button onClick={() => handleTabChange('videos')} className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-xs font-bold ${activeTab === 'videos' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500'}`}>
+              <Video size={14} /> Videos
+            </button>
+            <button onClick={() => handleTabChange('playlists')} className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-xs font-bold ${activeTab === 'playlists' ? 'bg-white text-indigo-600 shadow-sm' : 'text-slate-500'}`}>
+              <Layers size={14} /> Playlists
+            </button>
+          </div>
+
+          <button onClick={handleLogoutClick} className="w-full flex items-center justify-center gap-2 p-3 text-red-500 font-bold text-sm bg-red-50 rounded-xl">
+            <LogOut size={18} /> Logout
+          </button>
+        </div>
+      )}
     </nav>
   );
 };
