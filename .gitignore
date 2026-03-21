@@ -26,3 +26,9 @@ backend/models/checkpoints/*.pth
 echo "*.db" >> .gitignore
 echo "__pycache__/" >> .gitignore
 echo ".venv/" >> .gitignore
+
+temp/
+__pycache__/
+*.db
+.env
+node_modules/

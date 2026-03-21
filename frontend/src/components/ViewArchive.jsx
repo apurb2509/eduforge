@@ -19,6 +19,9 @@ const ViewArchive = ({ activeTab = 'videos' }) => {
   const [editItem, setEditItem] = useState(null); 
   const [selectionMode, setSelectionMode] = useState(false);
   const [selectedIds, setSelectedIds] = useState([]);
+  // Add these lines
+const [addingToPlaylist, setAddingToPlaylist] = useState(null); // Stores the playlist object we are adding to
+const [availableVideos, setAvailableVideos] = useState([]); // Videos not already in the playlist
 
   const API_BASE_URL = "http://127.0.0.1:8000";
 
@@ -94,6 +97,34 @@ const ViewArchive = ({ activeTab = 'videos' }) => {
     } catch (err) {
       console.error("Failed to remove video:", err);
       alert("An error occurred. Please try again.");
+    }
+  };
+
+  const handleOpenAddModal = (playlist) => {
+    // Filter out videos already in this playlist
+    const existingIds = new Set(playlist.videos?.map(v => v.id) || []);
+    const available = lectures.filter(lec => !existingIds.has(lec.id));
+    setAvailableVideos(available);
+    setAddingToPlaylist(playlist);
+  };
+  
+  const handleAddVideoToPlaylist = async (videoId) => {
+    try {
+      // Use FormData because your FastAPI backend expects Form data for video_id
+      const formData = new FormData();
+      formData.append("video_id", videoId);
+
+      await axios.post(
+        `${API_BASE_URL}/playlists/${addingToPlaylist.id}/add-video`, 
+        formData
+      );
+      
+      // Close modal and refresh data
+      setAddingToPlaylist(null);
+      fetchData();
+    } catch (err) {
+      console.error("Failed to add video:", err);
+      alert("Could not add video. Check if the backend is running.");
     }
   };
 
@@ -279,12 +310,22 @@ const ViewArchive = ({ activeTab = 'videos' }) => {
                       </div>
                     </div>
                   </div>
-                  <button 
-                    onClick={() => handleDelete('playlist', pl.id)} 
-                    className="p-4 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-2xl transition-all shadow-sm"
-                  >
-                    <Trash2 size={28}/>
-                  </button>
+{/* Modify the Action Buttons in the Playlist Header */}
+<div className="flex gap-3">
+            <button 
+              onClick={() => handleOpenAddModal(pl)} 
+              className="p-4 text-indigo-500 hover:bg-indigo-50 rounded-2xl transition-all shadow-sm border border-slate-100 bg-white"
+              title="Add videos to this playlist"
+            >
+              <Plus size={28}/>
+            </button>
+            <button 
+              onClick={() => handleDelete('playlist', pl.id)} 
+              className="p-4 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-2xl transition-all shadow-sm border border-slate-100 bg-white"
+            >
+              <Trash2 size={28}/>
+            </button>
+          </div>
                 </div>
                 
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8">
@@ -295,11 +336,15 @@ const ViewArchive = ({ activeTab = 'videos' }) => {
                         onClick={() => setSelectedVideo(vid)}
                       >
                         <PlayCircle className="absolute z-10 text-white opacity-0 group-hover/play:opacity-100 transition-opacity" size={56} />
-                        <img 
-                          src={`${API_BASE_URL}/static/${vid.video_url.replace('output_', 'input_').replace('.mp4', '.jpg')}`} 
-                          className="w-full h-full object-cover group-hover/play:scale-110 group-hover/play:brightness-50 transition-all duration-700" 
-                          alt={vid.title}
-                        />
+<img 
+  src={`${API_BASE_URL}/static/${vid.thumbnail_url || vid.video_url.replace('output_', 'input_').replace('.mp4', '.jpg')}`} 
+  className="w-full h-full object-cover group-hover/play:scale-110 group-hover/play:brightness-50 transition-all duration-700" 
+  alt={vid.title}
+  onError={(e) => { 
+    // Fallback image if the file is missing from the server
+    e.target.src = 'https://via.placeholder.com/640x360?text=Thumbnail+Not+Found'; 
+  }}
+/>
                       </div>
 
                       <p 
@@ -396,6 +441,52 @@ const ViewArchive = ({ activeTab = 'videos' }) => {
           </div>
         </div>
       )}
+
+      {/* --- Add Video to Playlist Modal --- */}
+{addingToPlaylist && (
+  <div className="fixed inset-0 z-[130] flex items-center justify-center p-4">
+    <div className="absolute inset-0 bg-slate-900/90 backdrop-blur-md" onClick={() => setAddingToPlaylist(null)} />
+    <div className="relative w-full max-w-4xl bg-white rounded-[3rem] p-10 shadow-2xl flex flex-col max-h-[85vh]">
+      <div className="flex justify-between items-center mb-8 border-b border-slate-100 pb-6">
+        <div>
+          <h2 className="text-2xl font-black text-slate-900">Add to "{addingToPlaylist.name}"</h2>
+          <p className="text-slate-500 text-sm font-medium">Select a video from your library to add</p>
+        </div>
+        <button onClick={() => setAddingToPlaylist(null)} className="p-3 hover:bg-slate-100 rounded-2xl"><X size={24}/></button>
+      </div>
+
+      <div className="overflow-y-auto pr-2 space-y-4 custom-scrollbar">
+        {availableVideos.length > 0 ? (
+          availableVideos.map((vid) => (
+            <div key={vid.id} className="flex items-center gap-6 p-4 rounded-3xl border border-slate-100 hover:border-indigo-300 hover:bg-indigo-50/30 transition-all group">
+              <div className="w-40 aspect-video rounded-xl bg-slate-200 overflow-hidden flex-shrink-0">
+                <img 
+                  src={`${API_BASE_URL}/static/${vid.video_url.replace('output_', 'input_').replace('.mp4', '.jpg')}`} 
+                  className="w-full h-full object-cover" 
+                  alt="" 
+                />
+              </div>
+              <div className="flex-1 min-w-0">
+                <h4 className="font-bold text-slate-800 truncate">{vid.title}</h4>
+                <p className="text-slate-500 text-xs line-clamp-1">{vid.description}</p>
+              </div>
+              <button 
+                onClick={() => handleAddVideoToPlaylist(vid.id)}
+                className="px-6 py-3 bg-indigo-600 text-white rounded-xl font-black text-xs uppercase tracking-widest hover:bg-indigo-700 transition-all"
+              >
+                Add Video
+              </button>
+            </div>
+          ))
+        ) : (
+          <div className="text-center py-10">
+            <p className="text-slate-400 font-medium">All your videos are already in this playlist!</p>
+          </div>
+        )}
+      </div>
+    </div>
+  </div>
+)}
     </div>
   );
 };

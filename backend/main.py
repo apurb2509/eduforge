@@ -97,7 +97,11 @@ TEMP_DIR = "temp"
 if not os.path.exists(TEMP_DIR):
     os.makedirs(TEMP_DIR)
 
-app.mount("/static", StaticFiles(directory=TEMP_DIR), name="static")
+# Add this line to get the absolute path of your project folder
+BASE_DIR = os.path.dirname(os.path.abspath(__file__)) 
+
+# Update the mount line
+app.mount("/static", StaticFiles(directory=os.path.join(BASE_DIR, TEMP_DIR)), name="static")
 
 # --- WebSocket Endpoint ---
 @app.websocket("/ws/progress")
@@ -122,7 +126,7 @@ async def generate_video(
 ):
     # 1. Start Progress
     await manager.broadcast_progress({"progress": 5, "status": "Cleaning old files..."})
-    clear_old_files(TEMP_DIR)
+    # clear_old_files(TEMP_DIR)
     
     # 2. Setup Paths
     timestamp = int(time.time())
@@ -209,7 +213,7 @@ async def update_lecture(
     
     lecture.title = title
     lecture.description = description
-    lecture.playlist_id = playlist_id
+    lecture.playlist_id = playlist_id if playlist_id != 0 else None
 
     if thumbnail:
         # Save the new custom thumbnail
@@ -300,6 +304,21 @@ async def create_playlist(data: PlaylistCreate, db: Session = Depends(get_db)):
     
     return new_p
 
+@app.post("/playlists/{playlist_id}/add-video")
+async def add_video_to_playlist_alt(
+    playlist_id: int, 
+    video_id: int = Form(...), # Expecting video_id as form data
+    db: Session = Depends(get_db)
+):
+    lecture = db.query(VideoLecture).filter(VideoLecture.id == video_id).first()
+    if not lecture:
+        raise HTTPException(status_code=404, detail="Video not found")
+    
+    lecture.playlist_id = playlist_id
+    db.commit()
+    await manager.broadcast_refresh()
+    return {"message": "Video added to playlist"}
+
 @app.get("/playlists")
 async def get_playlists(db: Session = Depends(get_db)):
     # Use joinedload to explicitly include the 'videos' relationship in the result
@@ -341,4 +360,4 @@ def read_root():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True)
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)

@@ -50,7 +50,7 @@ const StudentGallery = ({ activeTab = "videos" }) => {
   useEffect(() => {
     fetchAllData();
 
-    const socket = new WebSocket("ws://127.0.0.1:8000/ws/progress");
+    const socket = new WebSocket("ws://localhost:8080/ws/progress");
     socket.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data);
